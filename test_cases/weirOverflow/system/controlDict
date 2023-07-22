@@ -1,0 +1,88 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2206                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     interFoam;
+
+startFrom       latestTime;
+
+startTime       0;
+
+stopAt          endTime;
+
+endTime         85;
+
+deltaT          1e-3;
+
+writeControl    adjustable;
+
+writeInterval   5;
+
+purgeWrite      0;
+
+writeFormat     binary;
+
+writePrecision  6;
+
+writeCompression off;
+
+timeFormat      general;
+
+timePrecision   6;
+
+runTimeModifiable yes;
+
+adjustTimeStep  on;
+
+maxCo           0.4;
+
+maxAlphaCo      0.4;
+
+maxDeltaT       1;
+
+
+// ************************************************************************* //
+
+functions{
+
+    probes
+        {
+            type            probes;
+            libs            (sampling);
+            name            probes;
+            writeControl    timeStep;
+            writeInterval   1;
+            startTime       0.0;
+            fields          (U p);
+            fixedLocations  true;
+            interpolationScheme cell;
+
+            probeLocations
+            (
+                (18 28 0.5)
+                (8 31 0.5)
+                (25 15 0.5)
+                (30 24 0.5)
+                (31 1 0.5)
+                (35 12 0.5)
+                (40 1 0.5)
+                (51 1 0.5)
+                (65 1 0.5)
+                (80 1 0.5)
+
+            );
+            includeOutOfBounds  false;
+        }
+}

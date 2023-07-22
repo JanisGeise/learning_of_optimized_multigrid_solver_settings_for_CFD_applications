@@ -1,0 +1,10 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${ML_CFD_BASE}/RunFunctions        # run functions
+#------------------------------------------------------------------------------
+
+(cd initChannel && ./Allclean)
+
+(cd fullCase && ./Allclean)
+
+#------------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH --partition=standard
+#SBATCH --nodes=2
+#SBATCH --time=120:00:00
+#SBATCH --job-name=cube
+#SBATCH --ntasks-per-node=20
+
+module load singularity/latest
+module load mpi/openmpi/4.1.1/gcc
+
+source setup-env --container
+
+# path to the test case (adjust if necessary)
+cd ~/surfaceMountedCube/
+
+./Allrun &> "log_main.log"

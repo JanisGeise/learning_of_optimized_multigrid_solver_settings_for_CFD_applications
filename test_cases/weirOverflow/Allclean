@@ -1,0 +1,11 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${ML_CFD_BASE}/RunFunctions        # run functions
+#------------------------------------------------------------------------------
+
+# reset simulation
+cleanCase
+
+# delete o directory
+rm -r 0
+#------------------------------------------------------------------------------

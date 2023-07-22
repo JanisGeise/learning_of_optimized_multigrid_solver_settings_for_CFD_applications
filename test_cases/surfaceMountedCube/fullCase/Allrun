@@ -1,0 +1,52 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${ML_CFD_BASE}/RunFunctions        # run functions
+#------------------------------------------------------------------------------
+# restore0Dir
+cp -r 0.orig 0
+
+channelCase=../initChannel
+channelDataDir="$channelCase"/postProcessing/surfaces/inlet
+
+[ -d "$channelDataDir" ] || {
+    echo "Unable to locate precursor channel case - exiting"
+    exit 1
+}
+
+# Copy the channel data
+# Note: this is mapped using a timeVaryingMapped condition on the inlet patch
+mkdir -p constant/boundaryData/inlet/0
+
+# foamListTimes not available in container, so for now just hard code it
+# channelTimeDir=$(foamListTimes -case $channelCase -latestTime)
+channelTimeDir=2000
+
+cp -f "$channelDataDir"/points constant/boundaryData/inlet
+cp -f "$channelDataDir"/"$channelTimeDir"/turbulenceProperties:R constant/boundaryData/inlet/0/R
+cp -f "$channelDataDir"/"$channelTimeDir"/turbulenceProperties:L constant/boundaryData/inlet/0/L
+cp -f "$channelDataDir"/"$channelTimeDir"/turbulenceProperties:nuTilda constant/boundaryData/inlet/0/nuTilda
+cp -f "$channelDataDir"/"$channelTimeDir"/U constant/boundaryData/inlet/0/U
+
+runApplication blockMesh
+
+runApplication decomposePar
+
+# dummy file for post-processing
+touch post.foam
+
+# run checkMesh
+runApplication checkMesh
+
+# execute flow solver
+runParallel $(getApplication)
+
+# reconstruct
+runApplication reconstructPar
+
+# clean up
+rm -r processor*
+
+# for flowtorch, it it faster to do computations within openfoam prior processing in python
+postProcess -func "writeCellCentres" -constant -time none > log.writeCellCentres
+postProcess -func "writeCellVolumes" -constant -time none > log.writeCellVolumes
+# -----------------------------------------------------------------------------

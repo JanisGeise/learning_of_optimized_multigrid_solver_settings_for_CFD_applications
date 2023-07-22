@@ -1,0 +1,99 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2206                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    "alpha.water.*"
+    {
+        nAlphaCorr          1;
+        nAlphaSubCycles     2;
+        cAlpha              1;
+    }
+
+    p_rgh
+    {
+		solver		GAMG;
+		smoother		DICGaussSeidel;
+		tolerance		1e-06;
+		relTol		0.01;
+    }
+
+    p_rghFinal
+    {
+        $p_rgh;
+        relTol          0;
+    }
+
+    "pcorr.*"
+    {
+        $p_rgh;
+        tolerance       0.1;
+        relTol          0;
+    }
+
+    ".*(rho|rhoFinal)"
+    {
+        solver          diagonal;
+    }
+
+    "(U|T|k|epsilon).*"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-7;
+        relTol          0;
+        nSweeps         1;
+    }
+}
+
+PIMPLE
+{
+    momentumPredictor   yes;
+    correctPhi          yes;
+    nOuterCorrectors    50;
+    nCorrectors         1;
+    nNonOrthogonalCorrectors 0;
+
+    residualControl
+    {
+        "(U|p|k|omega|rho|T)"
+        {
+            relTol          0;
+            tolerance       1e-5;
+        }
+        
+        "(p)"
+        {
+             relTol          0;
+             tolerance       1e-4;
+        }
+    }
+
+}
+
+relaxationFactors
+{
+    equations
+    {
+        "U.*"           1;
+        "k.*"           1;
+        "epsilon.*"     1;
+        "T.*"           1;
+    }
+}
+
+
+// ************************************************************************* //

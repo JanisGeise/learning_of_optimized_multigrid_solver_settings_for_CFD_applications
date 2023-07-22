@@ -1,0 +1,35 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${ML_CFD_BASE}/RunFunctions        # run functions
+#------------------------------------------------------------------------------
+
+./Allrun.pre
+
+# Copy fields after meshing to avoid the generation of unnecessary patch fields
+# restore0Dir
+cp -r 0.orig 0
+
+# Initialize alpha
+runApplication setFields
+
+runApplication decomposePar
+
+# dummy file for post-processing
+touch post.foam
+
+# run checkMesh
+runApplication checkMesh
+
+# execute flow solver
+runParallel $(getApplication)
+
+# reconstruct
+runApplication reconstructPar
+
+# clean up
+rm -r processor*
+
+# for flowtorch, it it faster to do computations within openfoam prior processing in python
+postProcess -func "writeCellCentres" -constant -time none > log.writeCellCentres
+postProcess -func "writeCellVolumes" -constant -time none > log.writeCellVolumes
+#------------------------------------------------------------------------------

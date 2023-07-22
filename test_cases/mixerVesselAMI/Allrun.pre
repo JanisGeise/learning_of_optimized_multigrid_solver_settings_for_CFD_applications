@@ -1,0 +1,23 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${ML_CFD_BASE}/RunFunctions        # run functions
+#------------------------------------------------------------------------------
+
+mkdir -p constant
+
+# copy STL files from resources folder
+cp -rf geometry.orig/mixerVesselAMI constant/triSurface
+
+rm -rf 0
+
+runApplication blockMesh
+
+runApplication surfaceFeatureExtract
+
+runApplication snappyHexMesh -overwrite
+
+runApplication createBaffles -overwrite
+
+runApplication mergeOrSplitBaffles -split -overwrite
+
+#------------------------------------------------------------------------------
