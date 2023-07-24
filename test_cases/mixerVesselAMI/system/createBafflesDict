@@ -39,6 +39,7 @@ baffles
                 matchTolerance  0.0001;
                 neighbourPatch  AMI2;
                 transform       noOrdering;
+                lowWeightCorrection 0.7;
             }
 
             slave
@@ -49,6 +50,7 @@ baffles
                 matchTolerance  0.0001;
                 neighbourPatch  AMI1;
                 transform       noOrdering;
+                lowWeightCorrection 0.7;
             }
         }
     }

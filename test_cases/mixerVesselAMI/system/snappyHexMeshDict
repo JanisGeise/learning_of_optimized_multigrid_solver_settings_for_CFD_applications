@@ -359,10 +359,10 @@ snapControls
 
         // Detect (geometric only) features by sampling the surface
         // (default=false).
-        implicitFeatureSnap false;
+        implicitFeatureSnap true;
 
         // Use castellatedMeshControls::features (default = true)
-        explicitFeatureSnap true;
+        explicitFeatureSnap false;
 
         // Detect features between multiple surfaces
         // (only for explicitFeatureSnap, default = false)
