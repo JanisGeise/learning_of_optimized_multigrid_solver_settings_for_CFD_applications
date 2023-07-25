@@ -93,21 +93,28 @@ def get_execution_time_from_log(load_path: str) -> float:
 
 def get_n_cells_from_log(load_path: str) -> int:
     """
-    get the amount of cells for the simulation from the 'log.checkMesh' file (if present), otherwise from the
-    'log.blockMesh' file. Note: the number of cells in the 'blockMesh' log file differs from the actual number of cells
-    if 'snappyHexMesh' is applied
+    get the amount of cells for the simulation from the 'log.checkMesh' file (if present). If not present, the
+    'log.snappyHexMesh' file will be used, otherwise (if only 'blockMesh' used), then the number of cells located in the
+    'log.blockMesh' file will be taken
 
-    :param load_path: path to the top-level directory of the simulation containing the 'blockMesh' log file
+    :param load_path: path to the top-level directory of the simulation containing the log files
     :return: amount of cells of the mesh
     """
-    # if log file from 'checkMesh' is available, then use 'checkMesh' log file (in case snappyHexMesh is used, then the
-    # amount of cells in the log file from 'blockMesh' is not correct)
-    if glob(join(load_path, f"log.checkMesh"))[0]:
+    # if log file from 'checkMesh' is available, then use 'checkMesh' log file
+    if glob(join(load_path, f"log.checkMesh")):
         with open(glob(join(load_path, f"log.checkMesh"))[0], "r") as f:
             logfile = f.readlines()
 
         # number of cells are located under 'Mesh stats' at the beginning of the log file
         n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("    cells: ")][0]
+
+    # in case there is no log file from 'checkMesh' available, then check is snappyHexMesh was used
+    elif glob(join(load_path, f"log.snappyHexMesh")):
+        with open(glob(join(load_path, f"log.snappyHexMesh"))[0], "r") as f:
+            logfile = f.readlines()
+
+        # number of cells are located under 'Mesh stats' at the beginning of the log file
+        n_cells = [int(line.split(":")[2].split(" ")[0]) for line in logfile if line.startswith("Snapped mesh :")][0]
 
     else:
         # else use the log file from 'blockMesh'

@@ -14,14 +14,14 @@ def get_cfl_number(load_path: str) -> dict:
     """
     gets the avg. and max. Courant numbers from the solver's log file
 
-    :param load_path:
+    :param load_path: path to the top-level directory of the simulation containing the log file from the flow solver
     :return: dict containing the mean & max. Courant numbers, and if present the mean and max. CFL from the interface
     """
     with open(glob(join(load_path, f"log.*Foam"))[0], "r") as f:
         logfile = f.readlines()
 
     """
-    logfile looks like this:
+    solver log file looks something like this:
     
         Courant Number mean: 0.00156147 max: 0.860588
         Interface Courant Number mean: 0 max: 0
@@ -31,7 +31,7 @@ def get_cfl_number(load_path: str) -> dict:
     start_line = False
     data = {"cfl_mean": [], "cfl_max": [], "cfl_interface_mean": [], "cfl_interface_max": [], "dt": [], "t": []}
     for line in logfile:
-        # omit the initial courant number (prior starting the time loop)
+        # omit the initial Courant number (prior starting the time loop)
         if line.startswith("Starting time loop"):
             start_line = True
         if line.startswith("Courant Number mean") and start_line:
@@ -51,7 +51,7 @@ def get_cfl_number(load_path: str) -> dict:
         else:
             continue
 
-    # convert timme to tensor, so it can be non-dimensionalized easier
+    # convert time to tensor, so it can be non-dimensionalized easier
     data["t"] = tensor(data["t"])
 
     return data

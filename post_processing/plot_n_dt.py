@@ -7,6 +7,8 @@ from glob import glob
 from os.path import join
 from os import path, makedirs
 
+from post_processing.plot_grid_convergence_study_weirOverflow import get_n_cells_from_log
+
 
 def get_number_of_time_steps(load_path: str) -> int:
     """
@@ -33,7 +35,7 @@ if __name__ == "__main__":
     main_load_path = join(r"..", "run", "parameter_study", "influence_grid")
 
     # the names of the directories of the simulations
-    cases = ["mixerVesselAMI_coarseGrid", "mixerVesselAMI_defaultGrid", "mixerVesselAMI_fineGrid"]
+    cases = ["mixerVesselAMI_coarseGrid", "mixerVesselAMI_defaultGrid"]
 
     # name of the top-level directory where the plots should be saved
     save_path = join(main_load_path, "plots", "mixerVesselAMI")
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     n_dt = [get_number_of_time_steps(join(main_load_path, c)) for c in cases]
 
     # labels & ticks for the x-axis
-    xticks = [402224, 894973, 1692793]
+    xticks = [get_n_cells_from_log(join(main_load_path, c)) for c in cases]
     xlabel = r"$N_{cells}$"
 
     # use latex fonts
