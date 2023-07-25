@@ -93,16 +93,31 @@ def get_execution_time_from_log(load_path: str) -> float:
 
 def get_n_cells_from_log(load_path: str) -> int:
     """
-    get the amount of cells for the simulation from the 'blockMesh' log file
+    get the amount of cells for the simulation from the 'log.checkMesh' file (if present), otherwise from the
+    'log.blockMesh' file. Note: the number of cells in the 'blockMesh' log file differs from the actual number of cells
+    if 'snappyHexMesh' is applied
 
     :param load_path: path to the top-level directory of the simulation containing the 'blockMesh' log file
     :return: amount of cells of the mesh
     """
-    with open(glob(join(load_path, f"log.blockMesh"))[0], "r") as f:
-        logfile = f.readlines()
+    # if log file from 'checkMesh' is available, then use 'checkMesh' log file (in case snappyHexMesh is used, then the
+    # amount of cells in the log file from 'blockMesh' is not correct)
+    if glob(join(load_path, f"log.checkMesh"))[0]:
+        with open(glob(join(load_path, f"log.checkMesh"))[0], "r") as f:
+            logfile = f.readlines()
 
-    # number of cells are located under 'Mesh Information' at the end of the log file
-    return [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("  nCells: ")][0]
+        # number of cells are located under 'Mesh stats' at the beginning of the log file
+        n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("    cells: ")][0]
+
+    else:
+        # else use the log file from 'blockMesh'
+        with open(glob(join(load_path, f"log.blockMesh"))[0], "r") as f:
+            logfile = f.readlines()
+
+        # number of cells are located under 'Mesh Information' at the end of the log file
+        n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("  nCells: ")][0]
+
+    return n_cells
 
 
 def plot_execution_times_vs_n_cells(load_path: str, simulations: list, save_dir: str) -> None:
@@ -311,7 +326,7 @@ def plot_probes(save_dir: str, data: list, n_probes: int = 10, title: str = "", 
 
 if __name__ == "__main__":
     # path to the top-level directory containing the grid convergence study
-    main_load_path = r"../run/grid_convergence_study_weirOverflow"
+    main_load_path = join(r"..", "run", "grid_convergence_study_weirOverflow")
 
     # the names of the directories of the simulation with different grid refinement levels
     cases = ["weirOverflow_coarse_grid", "weirOverflow_default_grid", "weirOverflow_fine_grid"]
