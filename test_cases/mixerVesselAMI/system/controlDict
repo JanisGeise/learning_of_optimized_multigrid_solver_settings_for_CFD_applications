@@ -65,15 +65,12 @@ functions{
             writeControl    timeStep;
             writeInterval   1;
             startTime       0.0;
-            fields          (U p);
+            fields          (U p, p_rgh);
             fixedLocations  true;
             interpolationScheme cell;
 
             probeLocations
             (
-                // radial dist = const., probe locations just change wrt cylinder hight
-                // 0.264993 = r_vessel, z_max = 1.1 (vessel), z_min = -0.1 (vessel) -> gerader teil der wand geht von z = 0...1, rotoren gehen bis ca. y = 0.17 +-
-                // -> y = 0.22 ist ca. in mitte zwischen Wand und Rotoren
                 (0.0 0.22 0.0)
                 (0.0 0.22 0.1)
                 (0.0 0.22 0.2)

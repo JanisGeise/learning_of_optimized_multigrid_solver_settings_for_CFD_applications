@@ -24,13 +24,13 @@ def load_probes(load_path: str, n_probes, filename: str = "p", skip_n_points: in
 
     :param load_path: path to the top-level directory of the simulation
     :param n_probes: amount of probes placed in the flow field
-    :param filename: name of the field written out in the probes directory, e.g. 'p' or 'U'
+    :param filename: name of the field written out in the probes directory, e.g. 'p', 'p_rgh' or 'U'
     :param skip_n_points: offset, in case we don't want to read in the 1st N time steps of the values
     :return: dataframe containing the values for each probe
     """
     # skip header, header = n_probes + 2 lines containing probe no. and time header
-    if filename == "p":
-        names = ["time"] + [f"p_probe_{i}" for i in range(n_probes)]
+    if filename.startswith("p"):
+        names = ["time"] + [f"{filename}_probe_{i}" for i in range(n_probes)]
         p = pd.read_table(join(load_path, "postProcessing", "probes", "0", filename), sep=r"\s+",
                           skiprows=(n_probes+2)+skip_n_points, header=None, names=names)
     else:
@@ -113,7 +113,7 @@ def get_n_cells_from_log(load_path: str) -> int:
         with open(glob(join(load_path, f"log.snappyHexMesh"))[0], "r") as f:
             logfile = f.readlines()
 
-        # number of cells are located under 'Mesh stats' at the beginning of the log file
+        # number of cells are located at the end of the log file
         n_cells = [int(line.split(":")[2].split(" ")[0]) for line in logfile if line.startswith("Snapped mesh :")][0]
 
     else:
@@ -249,7 +249,8 @@ def plot_fields(load_path: str, save_dir: str, simulation: Union[list, str] = "w
     plt.close("all")
 
 
-def plot_avg_pressure(load_path: str, simulations: list, save_dir: str, n_probes: int = 10) -> None:
+def plot_avg_pressure(load_path: str, simulations: list, save_dir: str, n_probes: int = 10,
+                      field_name: str = "p") -> None:
     """
     plot the avg. pressure encountered at the probe locations throughout the simulation
 
@@ -257,6 +258,7 @@ def plot_avg_pressure(load_path: str, simulations: list, save_dir: str, n_probes
     :param simulations: the names of the directories of the simulation with e.g. different grid refinement levels
     :param save_dir: name of the top-level directory where the plots should be saved
     :param n_probes: amount of probes placed in the flow field
+    :param field_name: name of the probed field, e.g. 'p' or 'p_rgh'
     :return: None
     """
     # make directory for plots
@@ -267,7 +269,7 @@ def plot_avg_pressure(load_path: str, simulations: list, save_dir: str, n_probes
     plt.rcParams.update({"text.usetex": True})
 
     # load the pressure values of all probes written out during the simulation
-    data_p = [load_probes(join(load_path, s), n_probes=n_probes) for s in simulations]
+    data_p = [load_probes(join(load_path, s), filename=field_name, n_probes=n_probes) for s in simulations]
 
     # get the amount of cells for each simulation
     n_cells = [get_n_cells_from_log(join(load_path, s)) for s in simulations]
@@ -276,14 +278,14 @@ def plot_avg_pressure(load_path: str, simulations: list, save_dir: str, n_probes
     fig, ax = plt.subplots(nrows=n_probes, figsize=(6, 7), sharex="col")
     for i in range(n_probes):
         # compute & plot mean p of all cases for current probe
-        ax[i].plot(n_cells, [p[f"p_probe_{i}"].mean() for p in data_p], label=f"$probe$ ${i}$", marker="x",
+        ax[i].plot(n_cells, [p[f"{field_name}_probe_{i}"].mean() for p in data_p], label=f"$probe$ ${i}$", marker="x",
                    color="black")
         ax[i].set_ylabel("$\\bar{p}$" + f"$_{i}$", labelpad=20, rotation="horizontal")
     fig.supxlabel("$N_{cells}$")
     fig.supylabel("$\\bar{p}_i$ $\\qquad [Pa]$")
     fig.tight_layout()
     fig.subplots_adjust(top=0.99)
-    plt.savefig(join(save_dir, "plots", "p_avg_vs_N_cells.png"), dpi=340)
+    plt.savefig(join(save_dir, "plots", f"{field_name}_avg_vs_N_cells.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -298,7 +300,7 @@ def plot_probes(save_dir: str, data: list, n_probes: int = 10, title: str = "", 
     :param data: the probe data loaded using the 'load_probes' function of this script
     :param n_probes: number of probes placed in the flow field
     :param title: title of the plot (if wanted)
-    :param param: parameter, either 'p', or if U was loaded: 'ux', 'uy', 'uz'
+    :param param: parameter, either 'p', 'p_rgh'; or, if U was loaded: 'ux', 'uy', 'uz'
     :param legend_list: legend entries for the plot (if wanted)
     :param share_y: flag if all probes should have the same scaling for the y-axis
     :return: None
@@ -348,11 +350,16 @@ if __name__ == "__main__":
     plot_fields(main_load_path, save_path, times=["25", "85"], plot_probe_loc=True, annotation="time")
 
     # qualitative comparison of a specific field for different refinement levels at a specified time step
-    plot_fields(main_load_path, save_path, cases, times=3*["85"], annotation="grid")
+    plot_fields(main_load_path, save_path, cases, times=len(cases)*["85"], annotation="grid")
 
     # plot the probes for pressure wrt time
-    plot_probes(save_path, [load_probes(join(main_load_path, c), n_probes=10) for c in cases], param="p",
-                title=r"$p$ $vs.$ $t$", share_y=False, legend_list=["$coarse$", "$default$", "$fine$"])
+    plot_probes(save_path, [load_probes(join(main_load_path, c), n_probes=10) for c in cases], title=r"$p$ $vs.$ $t$",
+                share_y=False, legend_list=["$coarse$", "$default$", "$fine$"])
+
+    plot_probes(save_path, [load_probes(join(main_load_path, c), filename="p_rgh", n_probes=10) for c in cases],
+                param="p_rgh", title=r"$p_{rgh}$ $vs.$ $t$", share_y=False,
+                legend_list=["$coarse$", "$default$", "$fine$"])
 
     # plot the pressure at all probe locations avg. over the complete time span of the simulation
     plot_avg_pressure(main_load_path, cases, save_path)
+    plot_avg_pressure(main_load_path, cases, save_path, field_name="p_rgh")
