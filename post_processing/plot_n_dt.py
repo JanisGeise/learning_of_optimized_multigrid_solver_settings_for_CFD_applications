@@ -35,7 +35,7 @@ if __name__ == "__main__":
     main_load_path = join(r"..", "run", "parameter_study", "influence_grid")
 
     # the names of the directories of the simulations
-    cases = ["mixerVesselAMI_coarseGrid", "mixerVesselAMI_defaultGrid"]
+    cases = ["mixerVesselAMI_coarseGrid", "mixerVesselAMI_defaultGrid", "mixerVesselAMI_fineGrid"]
 
     # name of the top-level directory where the plots should be saved
     save_path = join(main_load_path, "plots", "mixerVesselAMI")

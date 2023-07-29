@@ -1,0 +1,115 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     pimpleFoam;
+
+startFrom       latestTime;
+
+startTime       0;
+
+stopAt          endTime;
+
+endTime         0.8;
+
+deltaT          5.0e-5;
+
+writeControl    runTime;
+
+writeInterval   0.1;
+
+purgeWrite      0;
+
+writeFormat     binary;
+
+writePrecision  8;
+
+timeFormat      general;
+
+timePrecision   8;
+
+runTimeModifiable true;
+
+
+functions
+{
+    forces
+    {
+        type            forceCoeffs;
+        libs            (forces);
+        writeControl    timeStep;
+        writeInterval   1;
+        log false;
+
+        patches
+        (
+            cylinder
+        );
+
+        rhoInf      1;
+        rho         rhoInf;
+
+        CofR        (0.2 0.2 0.005);
+        liftDir     (0 1 0);
+        dragDir     (1 0 0);
+        //pitchAxis   (0 0 1);
+        magUInf     1.0;
+        lRef        0.1;
+        Aref        0.001;
+    }
+
+    residuals
+        {
+            type            solverInfo;
+            libs            (utilityFunctionObjects);
+            writeResidualFields no;
+            writeControl    writeTime;
+            fields          (p);
+    }
+
+    probes
+        {
+            type            probes;
+            libs            (sampling);
+            name            probes;
+            writeControl    timeStep;
+            writeInterval   1;
+            startTime       0.0;
+            fields          (p);
+            fixedLocations  true;
+            interpolationScheme cell;
+
+        probeLocations
+        (
+            (0.3 0.15 0.005)
+            (0.3 0.2 0.005)
+            (0.3 0.25 0.005)
+            (0.4 0.15 0.005)
+            (0.4 0.2 0.005)
+            (0.4 0.25 0.005)
+            (0.5 0.15 0.005)
+            (0.5 0.2 0.005)
+            (0.5 0.25 0.005)
+            (0.6 0.15 0.005)
+            (0.6 0.2 0.005)
+            (0.6 0.25 0.005)
+        );
+        includeOutOfBounds  false;
+    }
+
+}
+
+// ************************************************************************* //
