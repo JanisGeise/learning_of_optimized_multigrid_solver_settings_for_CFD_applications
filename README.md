@@ -4,8 +4,8 @@ Master thesis about accelerating multigrid solvers in OpenFoam using DRL.
 # Getting started
 
 ## General information
-*RunFunctions* and *setup-env* adapted from [drlfoam](https://github.com/OFDataCommittee/drlfoam) and the 
-[ml-in-cfd](https://github.com/AndreWeiner/ml-cfd-lecture) by [@AndreWeiner](https://github.com/AndreWeiner/)
+*RunFunctions* and *setup-env* taken from [drlfoam](https://github.com/OFDataCommittee/drlfoam), currently maintained by
+[@AndreWeiner](https://github.com/AndreWeiner/)
 
 ## Test cases
 All simulations located in the *test cases* directory are *OpenFOAM* tutorials with minor modifications. The original
@@ -37,6 +37,8 @@ cases can be found under:
 -> directory containing the test cases needs to be located in the `/home/` directory, refer to 
 [this](https://github.com/AndreWeiner/ml-cfd-lecture/issues/6) issue for more information  
 -> `source setup-env --container`
+-> additionally the MPI version have to match (container uses MPI v. 4.1.2), otherwise this will lead to an error when
+executing the flow solver (meshing etc. works)
 
 ### Run simulation with SLURM
 

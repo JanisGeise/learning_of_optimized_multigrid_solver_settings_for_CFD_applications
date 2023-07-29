@@ -57,6 +57,16 @@ maxDeltaT       1;
 
 functions{
 
+    // Test function object
+    residuals
+        {
+            type            agentSolverSettings;
+            libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
+            writeResidualFields no;
+            writeControl    writeTime;
+            fields          (p_rgh);
+    }
+
     probes
         {
             type            probes;

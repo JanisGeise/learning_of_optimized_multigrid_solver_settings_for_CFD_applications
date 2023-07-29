@@ -2,3 +2,9 @@
 /test_py_scripts/
 /run/
 /test_cases/of2206-py1.12.1-cpu.sif
+
+# everything regarding the compiled function object
+/test_cases/libtorch
+/test_cases/agentSolverSettings/libs
+/test_cases/agentSolverSettings/src/agentSolverSettings/Make/linux64GccDPInt32Opt/
+/test_cases/agentSolverSettings/src/agentSolverSettings/lnInclude/

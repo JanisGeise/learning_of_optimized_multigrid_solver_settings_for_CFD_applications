@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "${0%/*}" || exit
-. ${ML_CFD_BASE}/RunFunctions        # run functions
+. ${DRL_BASE}/RunFunctions        # run functions
 #------------------------------------------------------------------------------
 
 cleanCase

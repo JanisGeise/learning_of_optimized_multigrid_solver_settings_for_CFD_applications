@@ -1,0 +1,2 @@
+agentSolverSettings.C
+LIB = $(DRL_LIBBIN)/libAgentSolverSettings
