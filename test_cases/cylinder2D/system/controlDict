@@ -46,6 +46,16 @@ runTimeModifiable true;
 
 functions
 {
+    // Test function object
+    residuals
+        {
+            type            agentSolverSettings;
+            libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
+            writeResidualFields no;
+            writeControl    writeTime;
+            fields          (p);
+    }
+
     forces
     {
         type            forceCoeffs;
@@ -69,15 +79,6 @@ functions
         magUInf     1.0;
         lRef        0.1;
         Aref        0.001;
-    }
-
-    residuals
-        {
-            type            solverInfo;
-            libs            (utilityFunctionObjects);
-            writeResidualFields no;
-            writeControl    writeTime;
-            fields          (p);
     }
 
     probes

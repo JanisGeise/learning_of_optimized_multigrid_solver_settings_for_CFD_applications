@@ -36,7 +36,7 @@ cases can be found under:
 -> by default, it is assumed that the container is located under `/test_cases/`  
 -> directory containing the test cases needs to be located in the `/home/` directory, refer to 
 [this](https://github.com/AndreWeiner/ml-cfd-lecture/issues/6) issue for more information  
--> `source setup-env --container`
+-> `source setup-env --container`  
 -> additionally the MPI version have to match (container uses MPI v. 4.1.2), otherwise this will lead to an error when
 executing the flow solver (meshing etc. works)
 

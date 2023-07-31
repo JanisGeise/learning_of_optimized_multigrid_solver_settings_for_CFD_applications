@@ -99,6 +99,7 @@ SourceFiles
 #ifndef functionObjects_agentSolverSettings_H
 #define functionObjects_agentSolverSettings_H
 
+#include <torch/script.h>
 #include "fvMeshFunctionObject.H"
 #include "writeFile.H"
 #include "solverFieldSelection.H"
@@ -129,9 +130,6 @@ protected:
         //- Names of (result) residual fields
         wordHashSet residualFieldNames_;
 
-        //- Flag to write the initial-residual as a vol field
-        bool writeResidualFields_;
-
         //- Initialisation flag
         bool initialised_;
 
@@ -139,22 +137,10 @@ protected:
     // Protected Member Functions
 
         //- Output file header information
-        void writeFileHeader(Ostream& os);
-
-        //- Create and store a residual field on the mesh database
-        void createResidualField(const word& fieldName);
-
-        //- Output file header information per primitive type value
-        template<class Type>
-        void writeFileHeader(Ostream& os, const word& fileName) const;
-
-        //- Initialise a residual field
-        template<class Type>
-        void initialiseResidualField(const word& fieldName);
+        void writeFileHeader(Ostream& os, const word& fieldName);
 
         //- Calculate the solver information
-        template<class Type>
-        void updateagentSolverSettings(const word& fieldName);
+        void computeResidualProperties(const word& fieldName);
 
 
     // Generated Methods
@@ -204,12 +190,6 @@ public:
 
 } // End namespace functionObjects
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#ifdef NoRepository
-    #include "agentSolverSettingsTemplates.C"
-#endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
