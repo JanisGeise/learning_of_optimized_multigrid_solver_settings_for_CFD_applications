@@ -133,6 +133,35 @@ protected:
         //- Initialisation flag
         bool initialised_;
 
+        // initialize the variables for storing the properties of the residuals
+        int pimple_iter_ = 0;
+        int maxSolverIter_ = 0;
+        int sumSolverIter_ = 0;
+        scalar avgAbsConRate_ = 0.0;
+        scalar initialResidual_ = 0.0;
+        scalar maxAbsConRate_ = 0.0;
+        scalar minAbsConRate_ = 42.0;
+        torch::Tensor convergenceRate_;
+        word solverName_;
+
+        // initialize variables for storing the action and probability, for now we only have a binary choice
+        bool action_;
+
+        // the following parameters are taken from drlfoam
+        //- training or evaluation mode
+        bool train_;
+
+        //- name of the PyTorch model
+        word policy_name_;
+
+        //- PyTorch model
+        torch::jit::script::Module policy_;
+
+        //- seed for random sampling
+        int seed_;
+
+        //- random number generator
+        std::mt19937 gen_;
 
     // Protected Member Functions
 
@@ -142,6 +171,22 @@ protected:
         //- Calculate the solver information
         void computeResidualProperties(const word& fieldName);
 
+        //- predict the solver settings based on the residuals of the last time step, adopted from drlfoam
+        void predictSettings();
+
+        //- modify the solver settings for GAMG based on the policy output
+        void modifySolverSettingsDict(const word& fieldName);
+
+        //- write the new solver settings to fvSolution
+        void writeFvSolutionFile(const word& solverSettings, const word& fieldName, const int nParameters) const;
+
+        //- write the properties of the residuals to file
+        void writeResidualsToFile(Ostream& os, const word& fieldName);
+
+        //- save the trajectory to file, taken from drlfoam, https://github.com/OFDataCommittee/drlfoam
+        void saveTrajectory(scalar prob_out) const;
+
+        void writeToStream(Foam::Ostream& outputStream);
 
     // Generated Methods
 

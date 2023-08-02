@@ -33,7 +33,7 @@ writeInterval   0.1;
 
 purgeWrite      0;
 
-writeFormat     binary;
+writeFormat     ascii;
 
 writePrecision  8;
 
@@ -46,14 +46,27 @@ runTimeModifiable true;
 
 functions
 {
-    // Test function object
+    // function object for computing the states and actions in order to predict the solver settings for GAMG
     residuals
         {
             type            agentSolverSettings;
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
-            writeResidualFields no;
             writeControl    writeTime;
+            writeInterval   1;
             fields          (p);
+            policy          "policy.pt";
+            train           true;
+            seed            0;
+    }
+
+    // log the execution time per time step for reward function
+    time
+    {
+        type            timeInfo;
+        libs            (utilityFunctionObjects);
+        writeControl    timeStep;
+        writeInterval   1;
+        perTimeStep     yes;
     }
 
     forces
