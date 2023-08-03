@@ -288,10 +288,22 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
         const int nFeatures = ft.size();
 
-        torch::Tensor features = torch::from_blob(ft.data(), {1, nFeatures}).to(torch::kFloat64);
+        // fill the feature tensor for policy input
+        torch::Tensor features = torch::zeros({1, nFeatures}).to(torch::kFloat64);
+        for (label i = 0; i < nFeatures; i++)
+        {
+            if (i < 3)
+            {
+                features[0][i] = ft[i];
+            }
+            // convert the convergence rates to log, because they are a few orders smaller tha N_iter etc.
+            else
+            {
+                features[0][i] = std::abs(std::log(ft[i]));
+            }
+        }
 
         // make prediction
-        // TODO: policy input varies over ~6...8 orders of magnitude -> LayerNorm mitigates this issue -> see create_dummy_policy.py
         std::vector<torch::jit::IValue> policyFeatures{features};
         torch::Tensor policy_out = policy_.forward(policyFeatures).toTensor();
 
@@ -445,8 +457,6 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
                                                                      const word& fieldName, const int nParameters) const
 {
     // this function modifies the fvSolution dict, however this is very inefficient and just for testing purposes
-    // the frequent IO leads to crash in simulation because at some point the file is not written but OF already tries
-    // to read it
     // TODO: use IO objects / dict to modify this file more efficiently and faster, further: file is read in 2 dt later... issue!
     const fileName& systemDir = mesh_.time().system();
 
@@ -507,7 +517,6 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
         }
     }
     fvSolutionFile.close();
-    std::remove(("./" + systemDir + "/" + "fvSolution").c_str());
 
     // now overwrite the fvSolution file with the new settings
     std::ofstream fvSolutionFileOut("./" + systemDir + "/" + "fvSolution");
