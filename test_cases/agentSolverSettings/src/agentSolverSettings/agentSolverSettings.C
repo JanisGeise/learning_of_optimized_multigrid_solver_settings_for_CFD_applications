@@ -286,7 +286,6 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_,
                                   maxAbsConRate_, minAbsConRate_};
 
-        // std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter};
         const int nFeatures = ft.size();
 
         torch::Tensor features = torch::from_blob(ft.data(), {1, nFeatures}).to(torch::kFloat64);
@@ -337,28 +336,37 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         interpolateCorrection = "no";
     }
 
-    /* not working because apparently it is not possible to write the tokens of these dicts using the '<<' operator
+    /* not working because apparently it is not possible to write or sth like that
+
     // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
     // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
-    auto fvSolutionDict = mesh_.findObject<IOdictionary>("fvSolution");
+    const IOdictionary& fvSolutionDict = mesh_.lookupObject<IOdictionary>("fvSolution");
 
     // take the two dicts for solver settings and PIMPLE settings and save into new dict since the 'fvSolutionDict' is
     // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
     // to the file after modifications
-    dictionary solverDict = fvSolutionDict -> subDict("solvers");
-    dictionary pimpleDict = fvSolutionDict -> subDict("PIMPLE");
+    dictionary solverDict = fvSolutionDict.subDict("solvers");
+    dictionary pimpleDict = fvSolutionDict.subDict("PIMPLE");
 
     // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
     // the values which are already present are overwritten by calling the set() method
     solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
 
-    // merge for writing
-    dictionary fvSolutionDictMod;
-    fvSolutionDictMod.add("solvers", solverDict);
-    fvSolutionDictMod.add("PIMPLE", pimpleDict);
+    IOdictionary ioDictObj
+    (
+      IOobject
+       (
+        "fvSolution",
+        mesh_.time().system(),
+        mesh_,
+        IOobject::MUST_READ,
+        IOobject::NO_WRITE
+       )
+    );
 
-    // update the fvSolution file
-    writeFvSolutionFile(fvSolutionDictMod);
+    ioDictObj.add("solvers", solverDict);
+    ioDictObj.add("PIMPLE", pimpleDict);
+    ioDictObj.write();                      // error: request for member ‘write’ is ambiguous
     */
 
     // for now, we only modify 'interpolateCorrection', so just keep everything else const.
@@ -499,11 +507,13 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
         }
     }
     fvSolutionFile.close();
+    std::remove(("./" + systemDir + "/" + "fvSolution").c_str());
 
     // now overwrite the fvSolution file with the new settings
     std::ofstream fvSolutionFileOut("./" + systemDir + "/" + "fvSolution");
     fvSolutionFileOut << newFile;
     fvSolutionFileOut.close();
+    // TODO: however, we can't modify the solver settings anyway because Pstream is initialized with (fileModificationSkew 5, maxFileModificationPolls 20)
 }
 
 // ************************************************************************* //
