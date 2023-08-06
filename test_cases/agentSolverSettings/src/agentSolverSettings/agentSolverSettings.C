@@ -225,12 +225,12 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     if (fieldSet_.size() < 1)
     {
         Info << "[agentSolverSettings]: No fields given! Make sure to specify the residual field for pressure in the"
-             << " controlDict." << endl;
+             << " controlDict. \n" << endl;
     }
     else if (fieldSet_.size() > 1)
     {
         Info << "[agentSolverSettings]: Found more than one field! Make sure to only specify one pressure field in the"
-             << " controlDict." << endl;
+             << " controlDict. \n" << endl;
     }
 
     // get the field name, e.g. 'p' or 'p_rgh'; there should be only one field available
@@ -242,11 +242,22 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     if (!fieldExists)
     {
         Info << "[agentSolverSettings]: specified field is either not a scalar field or doesn't exist! Make sure that"
-             << "  the specified field is the correct scalar field for pressure" << endl;
+             << "  the specified field is the correct scalar field for pressure \n" << endl;
     }
 
-    // Note: delaying initialisation until after first iteration so that
-    // we can find wildcard fields
+    // print some information to log file
+    Info << "\n[agentSolverSettings] Predicting GAMG solver settings for the next time step.\n" << endl;
+
+    // set the time, which has to elapse between file modification and re-reading to zero, otherwise the fvSolution file
+    // would not be considered as modified, this will be active starting at the 2nd time step, compare:
+    // (https://www.openfoam.com/documentation/guides/latest/api/classFoam_1_1IOobject.html#ab6ae1f9bd149d6b5097276a793d3b95f)
+    IOobject::fileModificationSkew = 1e-12;
+
+    // set the max. number of checking to 1e6, otherwise after 20 modifications (default value), the fvSolutions file
+    // would always be considered as unmodified (for mixerVesselAMI, we need ~70 000 time steps to simulate 10s of physical time)
+    IOobject::maxFileModificationPolls = 1e6;
+
+    // initialize file for writing the residual data
     if (!initialised_)
     {
         writeFileHeader(file(), fieldName);
@@ -267,6 +278,13 @@ bool Foam::functionObjects::agentSolverSettings::execute()
 
     // write the computed properties of the residuals to the dat-file in the 'postProcessing' directory
     writeResidualsToFile(file(), fieldName);
+
+    // TODO: force OF to re-read the fvSolution file, otherwise it is re-read the next time step somehow using regIOobject::readModifiedObjects();
+    // mesh_.time().readModifiedObjects();          // not working
+
+    // file is never marked as modified for some reason
+    // bool registryModified = mesh_.objectRegistry::modified();
+    // Info << "\n[DEBUG] " <<  registryModified << "\n" << endl;
 
     return true;
 }
@@ -312,6 +330,8 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
         if (train_)
         {
+            // if sampling directly from Bernoulli has to much variance, we can change this to sampling from beta-distr.
+            // and then convert the sampled value to action -> mapp from cont. space to action instead of discrete space
             std::bernoulli_distribution distr(prob_out);
             action_ = distr(gen_);
         }
@@ -348,7 +368,11 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         interpolateCorrection = "no";
     }
 
-    /* not working because apparently it is not possible to write or sth like that
+    // print the new settings to log file
+    Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
+         << "'interpolateCorrection' = " << interpolateCorrection << "\n\n" << endl;
+
+    /* not working yet
 
     // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
     // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
@@ -358,7 +382,6 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
     // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
     // to the file after modifications
     dictionary solverDict = fvSolutionDict.subDict("solvers");
-    dictionary pimpleDict = fvSolutionDict.subDict("PIMPLE");
 
     // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
     // the values which are already present are overwritten by calling the set() method
@@ -376,11 +399,18 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
        )
     );
 
-    ioDictObj.add("solvers", solverDict);
-    ioDictObj.add("PIMPLE", pimpleDict);
-    ioDictObj.write();                      // error: request for member ‘write’ is ambiguous
+    // replace the original solvers dict with the updated solver settings
+    ioDictObj.set("solvers", solverDict);
+
+    // works but doesn't write anything to the fvSolutions file
+    // mesh_.write();
+
+    // error: request for member ‘write’ is ambiguous (probably because it collides with other write() method)
+    // ioDictObj.write();
+
     */
 
+    // tmp work-around:
     // for now, we only modify 'interpolateCorrection', so just keep everything else const.
     const word& solverSettings = "\t{\n"
                                          "\t\tsolver \tGAMG;\n"
@@ -457,7 +487,7 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
                                                                      const word& fieldName, const int nParameters) const
 {
     // this function modifies the fvSolution dict, however this is very inefficient and just for testing purposes
-    // TODO: use IO objects / dict to modify this file more efficiently and faster, further: file is read in 2 dt later... issue!
+    // TODO: use IO objects / dict to modify this file more efficiently and faster, currently OF is crashing due to IO
     const fileName& systemDir = mesh_.time().system();
 
     // for now just use backslash until i figured out how to assemble the path independently of os
@@ -522,7 +552,6 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
     std::ofstream fvSolutionFileOut("./" + systemDir + "/" + "fvSolution");
     fvSolutionFileOut << newFile;
     fvSolutionFileOut.close();
-    // TODO: however, we can't modify the solver settings anyway because Pstream is initialized with (fileModificationSkew 5, maxFileModificationPolls 20)
 }
 
 // ************************************************************************* //

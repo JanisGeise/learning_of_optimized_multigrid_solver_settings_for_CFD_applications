@@ -23,7 +23,9 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         0.8;
+// endTime         0.8;
+
+endTime         1.0e-3;
 
 deltaT          5.0e-5;
 
@@ -51,8 +53,7 @@ functions
         {
             type            agentSolverSettings;
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
-            writeControl    writeTime;
-            writeInterval   1;
+            timeStart       0;
             fields          (p);
             policy          "policy.pt";
             train           true;
@@ -64,8 +65,7 @@ functions
     {
         type            timeInfo;
         libs            (utilityFunctionObjects);
-        writeControl    timeStep;
-        writeInterval   1;
+        timeStart       0;
         perTimeStep     yes;
     }
 

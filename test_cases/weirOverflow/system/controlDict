@@ -62,8 +62,7 @@ functions{
         {
             type            agentSolverSettings;
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
-            writeControl    writeTime;
-            writeInterval   1;
+            timeStart       0;
             fields          (p_rgh);
             policy          "policy.pt";
             train           true;
@@ -75,8 +74,7 @@ functions{
     {
         type            timeInfo;
         libs            (utilityFunctionObjects);
-        writeControl    timeStep;
-        writeInterval   1;
+        timeStart       0;
         perTimeStep     yes;
     }
 
