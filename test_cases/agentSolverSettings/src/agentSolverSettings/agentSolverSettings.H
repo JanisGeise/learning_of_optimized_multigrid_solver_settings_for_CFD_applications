@@ -186,8 +186,6 @@ protected:
         //- save the trajectory to file, taken from drlfoam, https://github.com/OFDataCommittee/drlfoam
         void saveTrajectory(scalar prob_out) const;
 
-        void writeToStream(Foam::Ostream& outputStream);
-
     // Generated Methods
 
         //- No copy construct

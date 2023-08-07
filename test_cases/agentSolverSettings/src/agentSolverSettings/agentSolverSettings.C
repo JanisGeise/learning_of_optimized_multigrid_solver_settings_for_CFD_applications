@@ -331,7 +331,7 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         if (train_)
         {
             // if sampling directly from Bernoulli has to much variance, we can change this to sampling from beta-distr.
-            // and then convert the sampled value to action -> mapp from cont. space to action instead of discrete space
+            // and then convert the sampled value to action -> map from cont. space to action instead of discrete space
             std::bernoulli_distribution distr(prob_out);
             action_ = distr(gen_);
         }
@@ -373,25 +373,16 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
          << "'interpolateCorrection' = " << interpolateCorrection << "\n\n" << endl;
 
     /* not working yet
+    // try using abs path -> doesn't make a difference
+    // const word& testPath = mesh_.time().rootPath() + "/" + mesh_.time().globalCaseName() + "/" + mesh_.time().system();
 
-    // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
-    // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
-    const IOdictionary& fvSolutionDict = mesh_.lookupObject<IOdictionary>("fvSolution");
-
-    // take the two dicts for solver settings and PIMPLE settings and save into new dict since the 'fvSolutionDict' is
-    // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
-    // to the file after modifications
-    dictionary solverDict = fvSolutionDict.subDict("solvers");
-
-    // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
-    // the values which are already present are overwritten by calling the set() method
-    solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
-
-    IOdictionary ioDictObj
+    IOdictionary fvSolutionDict
     (
       IOobject
        (
-        "fvSolution",
+        // OF at least searches for file, because arbitrary file name throws FileNotFound error
+        // "fvSolution",
+        "dummyFile",
         mesh_.time().system(),
         mesh_,
         IOobject::MUST_READ,
@@ -399,14 +390,28 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
        )
     );
 
+    // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
+    // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
+    fvSolutionDict = mesh_.lookupObject<IOdictionary>("fvSolution");
+
+    // take the two dicts for solver settings and PIMPLE settings and save into new dict since the 'fvSolutionDict' is
+    // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
+    // to the file after modifications
+    dictionary& solverDict = fvSolutionDict.subDict("solvers");
+
+    // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
+    // the values which are already present are overwritten by calling the set() method
+    solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
+
     // replace the original solvers dict with the updated solver settings
-    ioDictObj.set("solvers", solverDict);
+    fvSolutionDict.set("solvers", solverDict);
 
-    // works but doesn't write anything to the fvSolutions file
-    // mesh_.write();
+    // check if all settings are modified correctly
+    // Info << fvSolutionDict.subDict("solvers").tokens() << endl;
+    // Info << "\n[DEBUG] registered objects in mesh_: " << mesh_.names() << endl;      // dummyFile is registered
 
-    // error: request for member ‘write’ is ambiguous (probably because it collides with other write() method)
-    // ioDictObj.write();
+    // write the new solver settings to file
+    fvSolutionDict.regIOobject::write();            // works but doesn't modify the fvSolution / dummyFile file
 
     */
 
@@ -420,7 +425,7 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
                                          "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
                                  "\t}\n";
 
-    // update the fvSolution file
+    // update the fvSolution file -> only works if not decomposed, otherwise OF crashes, because file is read / written at same time
     writeFvSolutionFile(solverSettings, fieldName, 5);
 }
 
@@ -459,7 +464,6 @@ bool Foam::functionObjects::agentSolverSettings::write()
 
     return true;
 }
-
 
 void Foam::functionObjects::agentSolverSettings::saveTrajectory(scalar prob_out) const
 {
