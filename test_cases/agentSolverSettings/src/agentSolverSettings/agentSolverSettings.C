@@ -328,10 +328,16 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         // convert prediction to scalar, at the moment the prediction contains only one value
         scalar prob_out = policy_out[0][0].item<double>();
 
+        /*      log_prob not working with zeros (drlfoam)
+        scalar alpha = policy_out[0][0].item<double>();
+        scalar beta = policy_out[0][1].item<double>();
+        std::gamma_distribution<double> distribution_1(alpha, 1.0);
+        std::gamma_distribution<double> distribution_2(beta, 1.0);
+        */
+
         if (train_)
         {
-            // if sampling directly from Bernoulli has to much variance, we can change this to sampling from beta-distr.
-            // and then convert the sampled value to action -> map from cont. space to action instead of discrete space
+            // sampling from Bernoulli-distr.
             std::bernoulli_distribution distr(prob_out);
             action_ = distr(gen_);
         }
@@ -416,17 +422,21 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
     */
 
     // tmp work-around:
-    // for now, we only modify 'interpolateCorrection', so just keep everything else const.
-    const word& solverSettings = "\t{\n"
-                                         "\t\tsolver \tGAMG;\n"
-                                         "\t\tsmoother \tDICGaussSeidel;\n"
-                                         "\t\ttolerance \t1e-06;\n"
-                                         "\t\trelTol \t0.01;\n"
-                                         "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
-                                 "\t}\n";
+    // only modify the fvSolution file if we are on the master
+    if (Pstream::master())
+    {
+        // for now, we only modify 'interpolateCorrection', so just keep everything else const.
+        const word& solverSettings = "\t{\n"
+                                             "\t\tsolver \tGAMG;\n"
+                                             "\t\tsmoother \tDICGaussSeidel;\n"
+                                             "\t\ttolerance \t1e-06;\n"
+                                             "\t\trelTol \t0.01;\n"
+                                             "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
+                                     "\t}\n";
 
-    // update the fvSolution file -> only works if not decomposed, otherwise OF crashes, because file is read / written at same time
-    writeFvSolutionFile(solverSettings, fieldName, 5);
+        // update the fvSolution file
+        writeFvSolutionFile(solverSettings, fieldName, 5);
+    }
 }
 
 
@@ -476,7 +486,7 @@ void Foam::functionObjects::agentSolverSettings::saveTrajectory(scalar prob_out)
     if(!file.good())
     {
         // write header
-        trajectory << "t, p, interpolateCorr";
+        trajectory << "t, prob, interpolateCorr";
     }
 
     trajectory << std::setprecision(15)
