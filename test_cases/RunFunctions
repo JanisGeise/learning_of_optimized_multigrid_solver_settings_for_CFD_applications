@@ -5,15 +5,15 @@
 ## - $WM_PROJECT_DIR/bin/tools/RunFunctions
 ## - $WM_PROJECT_DIR/bin/tools/CleanFunctions
 ## of OpenFOAM-v2206 (www.openfoam.com). The main modifications are:
-## - support of containerized execution with Apptainer
+## - support of containerized execution with Singularity
 ## - modified MPI process binding for execution without resource manager
 # 
-## Containerized execution with Apptainer
+## Containerized execution with Singularity
 ##
-## Execution with Apptainer is supported via the following environment
+## Execution with Singularity is supported via the following environment
 ## variables:
-## - ML_CFD_IMAGE: path to the Apptainer image
-## - ML_CFD_BASHRC: path to the OpenFOAM bashrc file inside the container
+## - DRL_IMAGE: path to the Singularity image
+## - DRL_BASHRC: path to the OpenFOAM bashrc file inside the container
 ##
 ## Functions using the image (if found) are:
 ## - getNumberOfProcessors
@@ -34,11 +34,11 @@
 ## - https://stackoverflow.com/questions/47813384/weird-behaviour-of-mpirun-always-strictly-binding-to-cores-0-and-1-when-startin
 
 
-ML_CFD_BASHRC="${ML_CFD_BASHRC:=/usr/lib/openfoam/openfoam2206/etc/bashrc}"
+DRL_BASHRC="${DRL_BASHRC:=/usr/lib/openfoam/openfoam2206/etc/bashrc}"
 
 imageFound()
 {
-    if [ -f "$ML_CFD_IMAGE" ]; then
+    if [ -f "$DRL_IMAGE" ]; then
         return 0
     fi
     return 1
@@ -47,7 +47,7 @@ imageFound()
 setImage()
 {
     if [ -f "$1" ]; then
-        ML_CFD_IMAGE=$1
+        DRL_IMAGE=$1
     else
         echo "Image $1 not found"
     fi
@@ -101,8 +101,7 @@ getNumberOfProcessors()
     if imageFound
     then
         cmd="foamDictionary -entry numberOfSubdomains -value $dict"
-        # set -- $(apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $cmd")
-        set -- $(singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $cmd")
+        set -- $(singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $cmd")
     else
         set -- $(foamDictionary -entry numberOfSubdomains -value "$dict" 2>/dev/null)
     fi
@@ -131,8 +130,7 @@ getApplication()
     if imageFound
     then
         cmd="foamDictionary -entry application -value system/controlDict"
-        # set -- $(apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $cmd")
-        set -- $(singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $cmd")
+        set -- $(singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $cmd")
     else
         set -- $(foamDictionary -entry application -value system/controlDict 2>/dev/null)
     fi
@@ -196,14 +194,12 @@ runApplication()
     else
         if imageFound
         then
-            echo "Running $appRun on $PWD with image $ML_CFD_IMAGE"
+            echo "Running $appRun on $PWD with image $DRL_IMAGE"
             if [ "logMode" = append ]
             then
-                # apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" >> $logFile 2>&1
-                singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" >> $logFile 2>&1
+                singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $appRun $appArgs $@" >> $logFile 2>&1
             else
-                # apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" > $logFile 2>&1
-                singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" >> $logFile 2>&1
+                singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $appRun $appArgs $@" > $logFile 2>&1
             fi
         else
             echo "Running $appRun on $PWD"
@@ -279,8 +275,8 @@ runParallel()
     else
         if imageFound
         then
-            echo "Running $appRun ($nProcs processes) on $PWD with image $ML_CFD_IMAGE"
-            if [[ -z "${OMPI_BIND_TO_NONE}" ]]
+            echo "Running $appRun ($nProcs processes) on $PWD with image $DRL_IMAGE"
+            if [[ -n "${OMPI_BIND_TO_NONE}" ]]
             then
                 runArgs="-n $nProcs --bind-to none"
             else
@@ -288,11 +284,9 @@ runParallel()
             fi
             if [ "$logMode" = append ]
             then
-                # mpirun $runArgs apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" </dev/null >> $logFile 2>&1
-                mpirun $runArgs singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" </dev/null >> $logFile 2>&1
+                mpirun $runArgs singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $appRun $appArgs $@" </dev/null >> $logFile 2>&1
             else
-                mpirun $runArgs apptainer exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" </dev/null > $logFile 2>&1
-                mpirun $runArgs singularity exec $ML_CFD_IMAGE bash -c "source $ML_CFD_BASHRC && $appRun $appArgs $@" </dev/null > $logFile 2>&1
+                mpirun $runArgs singularity exec $DRL_IMAGE bash -c "source $DRL_BASHRC && $appRun $appArgs $@" </dev/null > $logFile 2>&1
             fi
         else
             echo "Running $appRun ($nProcs processes) on $PWD "

@@ -57,6 +57,15 @@ maxDeltaT       1;
 
 functions{
 
+    // log the execution time per time step for reward function
+    time
+    {
+        type            timeInfo;
+        libs            (utilityFunctionObjects);
+        timeStart       0;
+        perTimeStep     yes;
+    }
+
     probes
         {
             type            probes;

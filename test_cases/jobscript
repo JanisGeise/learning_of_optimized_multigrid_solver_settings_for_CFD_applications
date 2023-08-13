@@ -7,10 +7,11 @@
 
 module load singularity/latest
 module load mpi/openmpi/4.1.1/gcc
+module load python/3.8.2
 
 source setup-env --container
 
 # path to the test case (adjust if necessary)
-cd ~/surfaceMountedCube/
+cd ~/test_cases/surfaceMountedCube/
 
 ./Allrun &> "log_main.log"

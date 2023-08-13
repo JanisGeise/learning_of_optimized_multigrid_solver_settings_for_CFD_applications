@@ -22,7 +22,7 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         85;
+endTime         80;
 
 deltaT          1e-3;
 
@@ -30,7 +30,7 @@ writeControl    adjustable;
 
 writeInterval   5;
 
-purgeWrite      0;
+purgeWrite      1;
 
 writeFormat     binary;
 
@@ -62,10 +62,10 @@ functions{
         {
             type            agentSolverSettings;
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
-            timeStart       0;
+            timeStart       100;
             fields          (p_rgh);
             policy          "policy.pt";
-            train           true;
+            train           false;
             seed            0;
     }
 

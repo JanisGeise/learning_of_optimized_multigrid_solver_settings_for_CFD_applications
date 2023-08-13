@@ -41,8 +41,12 @@ cases can be found under:
 executing the flow solver (meshing etc. works)
 
 ### Run simulation with SLURM
+`module load singularity/latest`  
+`./Allwmake --container`
 
 ## Installation of drlfoam
+drlfoam repository can be found [here](https://github.com/JanisGeise/drlfoam/tree/solver_settings) (branch *solver_settings*)
+
 
 # Troubleshooting
 In case something is not working as expected or if you find any bugs, please feel free to open up a new 
