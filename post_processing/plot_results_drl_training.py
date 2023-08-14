@@ -19,20 +19,31 @@ def load_rewards(load_dir: str) -> dict:
     """
     files = sorted(glob(join(load_dir, "observations_*.pt")), key=lambda x: int(x.split("_")[-1].split(".")[0]))
     obs = [pt.load(join(f)) for f in files]
-    obs_out = {"rewards": [], "actions": [], "probability": [], "t_per_dt": []}
+    params = ["rewards", "actions", "probability", "t_per_dt"]
+    obs_out = {}
+
+    # add keys for mean and std. deviation to dict
+    for key in params:
+        obs_out.update({f"{key}_mean": []})
+        obs_out.update({f"{key}_std": []})
 
     for episode in range(len(obs)):
-        for key in obs_out:
-            obs_out[key].append(pt.cat([i[key].unsqueeze(-1) for i in obs[episode]], dim=1))
+        # get the min. amount of time steps for each episode (in case dt != const. we can't just stack the tensors)
+        n_dt = [i["rewards"].size()[0] for i in obs[episode]]
+        tmp = pt.zeros((sum(n_dt), ))
 
-    # we want the quantities' avg. wrt episode, so it's ok to stack all trajectories in the 2nd dimension, since we avg.
-    # over all of them anyway, list(...) to avoid RuntimeError, bc dict is changing size during iterations
-    for key in list(obs_out.keys()):
-        obs_out[f"{key}_mean"] = pt.tensor([pt.mean(pt.flatten(i)) for i in obs_out[key]])
-        obs_out[f"{key}_std"] = pt.tensor([pt.std(pt.flatten(i)) for i in obs_out[key]])
+        for key in params:
+            for i, runner in enumerate(obs[episode]):
+                # we want the quantities' avg. wrt episode, so it's ok to stack all trajectories in one tensor
+                # since we avg. over all of them anyway
+                if i == 0:
+                    tmp[:n_dt[i]] = obs[episode][i][key]
+                else:
+                    tmp[sum(n_dt[:i]):sum(n_dt[:i+1])] = obs[episode][i][key]
 
-        # mean & std. values are sufficient, so delete the actual trajectories from dict
-        obs_out.pop(key)
+            # compute the mean and st. deviation wrt episode
+            obs_out[f"{key}_mean"].append(pt.mean(tmp).item())
+            obs_out[f"{key}_std"].append(pt.std(tmp).item())
 
     return obs_out
 
@@ -96,11 +107,11 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "interpolateCorrection")
+    load_path = join("..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e80_r8_b8_f0.6_1st_test"]
+    cases = ["e100_r8_b8_f70_1st_test"]
 
     # legend entries for the plots
     legend = ["$1^{st}$ $test$"]

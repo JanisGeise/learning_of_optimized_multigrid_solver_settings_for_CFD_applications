@@ -20,11 +20,11 @@ def load_cpu_times(case_path: str) -> DataFrame:
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "interpolateCorrection")
+    load_path = join("..", "run", "drl", "interpolateCorrection", "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["no", "yes", "random_policy", "trained_policy_1st_try"]
+    cases = ["no", "yes", "random_policy", "trained_policy"]
 
     # xticks for the plots
     xticks = ["$no$", "$yes$", "$random$ $policy$", "$trained$ $policy$"]
@@ -34,6 +34,9 @@ if __name__ == "__main__":
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20
+
+    # factor for weirOverflow case
+    # factor = 1 / 0.4251
 
     # create directory for plots
     if not path.exists(save_path):
@@ -84,12 +87,18 @@ if __name__ == "__main__":
     plt.pause(2)
     plt.close("all")
 
+    # make sure all cases have the same amount of time steps, if not then take the 1st N time steps which are available
+    # for all cases (difference for 'weirOverflow' is somewhere around 10 dt and therefore not visible anyway)
+    min_n_dt = min([len(i) for i in results["time_step"]])
+
     # plot the execution time wrt time step
     fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")
     for i, r in enumerate(zip(results["mean_t_per_dt"], results["std_t_per_dt"])):
         # scale all execution times with the execution time of the default settings
-        ax[0].scatter(results["time_step"][i] / factor, r[0] / results["mean_t_per_dt"][default_idx], marker=".")
-        ax[1].scatter(results["time_step"][i] / factor, r[1] / results["std_t_per_dt"][default_idx], marker=".")
+        ax[0].scatter(results["time_step"][i][:min_n_dt] / factor,
+                      r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
+        ax[1].scatter(results["time_step"][i][:min_n_dt] / factor,
+                      r[1][:min_n_dt] / results["std_t_per_dt"][default_idx][:min_n_dt], marker=".")
 
     ax[0].set_ylabel(r"$\mu{(t^*_{exec})}$", fontsize=13)
     ax[1].set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)

@@ -70,7 +70,7 @@ void Foam::functionObjects::agentSolverSettings::writeFileHeader(Ostream& os, co
     const word fieldBase(fieldName);
 
     writeTabbed(os, fieldBase + "_initial");
-    writeTabbed(os, fieldBase + "_rate_abs");
+    writeTabbed(os, fieldBase + "_rate_median");
     writeTabbed(os, fieldBase + "_rate_max");
     writeTabbed(os, fieldBase + "_rate_min");
     writeTabbed(os, fieldBase + "_sum_iters");
@@ -99,7 +99,7 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
 
     const word resultName(fieldName);
     setResult(resultName + "_initial", initialResidual_);
-    setResult(resultName + "rate_avg", avgAbsConRate_);
+    setResult(resultName + "rate_median", avgAbsConRate_);
     setResult(resultName + "rate_max", maxAbsConRate_);
     setResult(resultName + "rate_min", minAbsConRate_);
     setResult(resultName + "_sum_iters", sumSolverIter_);
@@ -170,8 +170,8 @@ void Foam::functionObjects::agentSolverSettings::computeResidualProperties(const
         }
     }
 
-    // for simplicity, for now just compute the avg. convergence rate instead of median
-    avgAbsConRate_ = torch::mean(convergenceRate_).abs().item<double>();
+    // compute the median convergence rate (correlation coefficient for median rate is higher than for avg. rate)
+    avgAbsConRate_ = torch::median(convergenceRate_).abs().item<double>();
 }
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -327,13 +327,6 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
         // convert prediction to scalar, at the moment the prediction contains only one value
         scalar prob_out = policy_out[0][0].item<double>();
-
-        /*      log_prob not working with zeros (drlfoam)
-        scalar alpha = policy_out[0][0].item<double>();
-        scalar beta = policy_out[0][1].item<double>();
-        std::gamma_distribution<double> distribution_1(alpha, 1.0);
-        std::gamma_distribution<double> distribution_2(beta, 1.0);
-        */
 
         if (train_)
         {
