@@ -9,40 +9,7 @@ from os import makedirs, path
 from statsmodels.tsa.stattools import acf
 from typing import List
 
-from test_py_scripts.get_residuals_from_log import get_GAMG_residuals
-
-
-def map_keys_to_labels(key: str) -> str:
-    """
-    map the key of the dict to a label, which will be used as subtitle for plotting
-
-    :param key: the key to map
-    :return: the label associated with the key
-    """
-
-    if key == "n_solver_iter":
-        label = r"$N_{iter, \, solver} \, / \, \Delta t$"
-    elif key == "exec_time":
-        label = "$t_{exec}$"
-    elif key == "sum_gamg_iter":
-        label = r"$\sum{N_{GAMG}} \, / \, \Delta t$"
-    elif key == "max_gamg_iter":
-        label = r"$N_{GAMG, \, max} \, / \, \Delta t$"
-    elif key == "max_init_residual":
-        label = "$max(\\boldsymbol{R}_0)$"
-    elif key == "init_residual":
-        label = "$\\boldsymbol{R}_0$"
-    elif key == "min_convergence_rate":
-        label = "$|\Delta \\boldsymbol{R}_{min}|$"
-    elif key == "median_convergence_rate":
-        label = "$|\Delta \\boldsymbol{R}_{median}|$"
-    elif key == "avg_convergence_rate":
-        label = "$|\Delta \\boldsymbol{R}_{avg}|$"
-    elif key == "max_convergence_rate":
-        label = "$|\Delta \\boldsymbol{R}_{max}|$"
-    else:
-        label = "$parameter"
-    return label
+from get_residuals_from_log import get_GAMG_residuals, map_keys_to_labels
 
 
 def compute_auto_correlations(data: List[dict], key_list: list) -> list:
@@ -66,7 +33,6 @@ def compute_auto_correlations(data: List[dict], key_list: list) -> list:
 if __name__ == "__main__":
     # main path to all the cases
     load_path = join(r"..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
-    # load_path = join(r"..", "run", "drl", "interpolateCorrection", "results_cylinder2D")
 
     # list with the cases
     cases = [join("no", "run_1"), join("yes", "run_1")]
@@ -126,10 +92,10 @@ if __name__ == "__main__":
                     ax[row][col].plot(range(len(auto_corr[counter][c])), auto_corr[counter][c], marker="x")
             ax[row][col].set_title(map_keys_to_labels(keys[counter]))
             counter += 1
-        ax[row][0].set_ylabel(r"$R_{ii}$")
+        ax[row][0].set_ylabel(r"$R_{ii}$", fontsize=13)
 
-    ax[-1][0].set_xlabel("$time$ $delay$")
-    ax[-1][1].set_xlabel("$time$ $delay$")
+    ax[-1][0].set_xlabel("$time$ $delay$", fontsize=13)
+    ax[-1][1].set_xlabel("$time$ $delay$", fontsize=13)
     fig.tight_layout()
     ax[0][0].legend(loc="lower right", framealpha=1.0, ncol=2)
     fig.subplots_adjust(hspace=0.2)

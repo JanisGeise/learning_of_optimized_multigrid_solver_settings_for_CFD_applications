@@ -10,12 +10,13 @@ import regex as re
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from glob import glob
 from os.path import join
 from typing import Union
 from os import path, makedirs
 from matplotlib.patches import Polygon
 from flowtorch.data import FOAMDataloader
+
+from post_processing.get_residuals_from_log import get_execution_time_from_log, get_n_cells_from_log
 
 
 def load_probes(load_path: str, n_probes, filename: str = "p", skip_n_points: int = 0) -> pd.DataFrame:
@@ -76,55 +77,26 @@ def get_probe_locations(path_controlDict: str) -> list:
     return coord
 
 
-def get_execution_time_from_log(load_path: str) -> float:
+def get_number_of_probes(load_dir: str) -> int:
     """
-    get the total execution time of the simulation from the solver's log file
+    get the number of probes defined in the control dict of the base case, initialize a dummy policy with N_probes
 
-    :param load_path: path to the top-level directory of the simulation containing the log file from the flow solver
-    :return: execution time of the simulation in [s]
+    :param: load_dir: path to the case directory where the simulation was executed
+    :return: amount of probes defined in the control dict of the simualtion
     """
-    with open(glob(join(load_path, f"log.*Foam"))[0], "r") as f:
-        logfile = f.readlines()
+    key = "probeLocations"
 
-    # the final execution time is located somewhere at the end of the logfile, but the exact location depends on what
-    # else is additionally written out, so just take the last exec time of final time step
-    return [float(i.split(" ")[2]) for i in logfile if i.startswith("ExecutionTime = ")][-1]
+    with open(join(load_dir, "system", "controlDict"), "r") as f:
+        lines = f.readlines()
 
+    # get dict containing all probe locations
+    start = [(re.findall(key, l), idx) for idx, l in enumerate(lines) if re.findall(key, l)][0][1]
+    end = [(re.findall(r"\);", l), idx) for idx, l in enumerate(lines) if re.findall(r"\);", l) and idx > start][0][1]
 
-def get_n_cells_from_log(load_path: str) -> int:
-    """
-    get the amount of cells for the simulation from the 'log.checkMesh' file (if present). If not present, the
-    'log.snappyHexMesh' file will be used, otherwise (if only 'blockMesh' used), then the number of cells located in the
-    'log.blockMesh' file will be taken
+    # remove everything but the probe locations, start + 2 because "probeLocations" and "(\n" are in list
+    lines = [line for line in lines[start+2:end] if len(line.strip("\n").split(" ")) > 1]
 
-    :param load_path: path to the top-level directory of the simulation containing the log files
-    :return: amount of cells of the mesh
-    """
-    # if log file from 'checkMesh' is available, then use 'checkMesh' log file
-    if glob(join(load_path, f"log.checkMesh")):
-        with open(glob(join(load_path, f"log.checkMesh"))[0], "r") as f:
-            logfile = f.readlines()
-
-        # number of cells are located under 'Mesh stats' at the beginning of the log file
-        n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("    cells: ")][0]
-
-    # in case there is no log file from 'checkMesh' available, then check is snappyHexMesh was used
-    elif glob(join(load_path, f"log.snappyHexMesh")):
-        with open(glob(join(load_path, f"log.snappyHexMesh"))[0], "r") as f:
-            logfile = f.readlines()
-
-        # number of cells are located at the end of the log file
-        n_cells = [int(line.split(":")[2].split(" ")[0]) for line in logfile if line.startswith("Snapped mesh :")][0]
-
-    else:
-        # else use the log file from 'blockMesh'
-        with open(glob(join(load_path, f"log.blockMesh"))[0], "r") as f:
-            logfile = f.readlines()
-
-        # number of cells are located under 'Mesh Information' at the end of the log file
-        n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("  nCells: ")][0]
-
-    return n_cells
+    return len(lines)
 
 
 def plot_execution_times_vs_n_cells(load_path: str, simulations: list, save_dir: str) -> None:
@@ -353,11 +325,12 @@ if __name__ == "__main__":
     plot_fields(main_load_path, save_path, cases, times=len(cases)*["85"], annotation="grid")
 
     # plot the probes for pressure wrt time
-    plot_probes(save_path, [load_probes(join(main_load_path, c), n_probes=10) for c in cases], title=r"$p$ $vs.$ $t$",
-                share_y=False, legend_list=["$coarse$", "$default$", "$fine$"])
+    p = [load_probes(join(main_load_path, c), n_probes=get_number_of_probes(join(main_load_path, c))) for c in cases]
+    plot_probes(save_path, p, title=r"$p$ $vs.$ $t$", share_y=False, legend_list=["$coarse$", "$default$", "$fine$"])
 
-    plot_probes(save_path, [load_probes(join(main_load_path, c), filename="p_rgh", n_probes=10) for c in cases],
-                param="p_rgh", title=r"$p_{rgh}$ $vs.$ $t$", share_y=False,
+    # plot the probes for p_rgh wrt time
+    p = [load_probes(join(main_load_path, c), n_probes=get_number_of_probes(join(main_load_path, c))) for c in cases]
+    plot_probes(save_path, p, param="p_rgh", title=r"$p_{rgh}$ $vs.$ $t$", share_y=False,
                 legend_list=["$coarse$", "$default$", "$fine$"])
 
     # plot the pressure at all probe locations avg. over the complete time span of the simulation

@@ -21,16 +21,17 @@ def load_cpu_times(case_path: str) -> DataFrame:
 if __name__ == "__main__":
     # main path to all the cases and save path
     load_path = join("..", "run", "drl", "interpolateCorrection", "results_cylinder2D")
+    # load_path = join("..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["no", "yes", "random_policy", "trained_policy"]
+    cases = ["no_local", "yes_local", "random_policy_local", "trained_policy_local", "trained_policy_local_new"]
 
     # xticks for the plots
-    xticks = ["$no$", "$yes$", "$random$ $policy$", "$trained$ $policy$"]
+    xticks = ["$no$", "$yes$", "$random$ $policy$", "$trained$ $policy$", "$trained$ $policy$\n$new$"]
 
     # which case contains the default setting -> used for scaling the execution times
-    default_idx = 1
+    default_idx = 0
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20
@@ -105,8 +106,8 @@ if __name__ == "__main__":
     ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     # ax[0].set_title(r"$'interpolateCorrection'$")
     fig.tight_layout()
-    fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=4)
-    fig.subplots_adjust(top=0.94)
+    fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=3)
+    fig.subplots_adjust(top=0.90)
     plt.savefig(join(save_path, "execution_times_vs_dt.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
