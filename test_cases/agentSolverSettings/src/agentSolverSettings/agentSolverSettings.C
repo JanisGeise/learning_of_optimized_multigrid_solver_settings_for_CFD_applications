@@ -325,19 +325,33 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         std::vector<torch::jit::IValue> policyFeatures{features};
         torch::Tensor policy_out = policy_.forward(policyFeatures).toTensor();
 
+        /*
         // convert prediction to scalar, at the moment the prediction contains only one value
         scalar prob_out = policy_out[0][0].item<double>();
+        */
 
         if (train_)
         {
-            // sampling from Bernoulli-distr.
+            /*
+            // sampling from Bernoulli-distr. for 'interpolateCorrection'
             std::bernoulli_distribution distr(prob_out);
+            */
+
+            // use a discrete distribution in order to sample the soother; apparently it doesn't work to 1st convert
+            // the policy output and then use that as input, so put it directly into the distr
+            std::discrete_distribution<> distr({policy_out[0][0].item<double>(), policy_out[0][1].item<double>(),
+                                                policy_out[0][2].item<double>(), policy_out[0][3].item<double>(),
+                                                policy_out[0][4].item<double>(), policy_out[0][5].item<double>()});
             action_ = distr(gen_);
         }
 
         else
         {
-            // convert the probability to a bool
+            // take the smoother which has the highest probability
+            action_ = torch::argmax(policy_out).item<int>();
+
+            /*
+            // convert the probability to a bool -> 'interpolateCorrection'
             if (prob_out <= 0.5)
             {
                 action_ = 0;
@@ -346,82 +360,90 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
             {
                 action_ = 1;
             }
+            */
         }
 
         // save the policy output, the execution time per time step is logged using the 'timeInfo' function object
-        saveTrajectory(prob_out);
+        saveTrajectory(policy_out);
     }
 }
 
 
 void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const word& fieldName)
 {
-    // map the action to the settings, at the moment only for 'interpolateCorrection'
-    word interpolateCorrection;
-    if (action_)
-    {
-       interpolateCorrection = "yes";
-    }
-    else
-    {
-        interpolateCorrection = "no";
-    }
-
-    // print the new settings to log file
-    Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
-         << "'interpolateCorrection' = " << interpolateCorrection << "\n\n" << endl;
-
-    /* not working yet
-    // try using abs path -> doesn't make a difference
-    // const word& testPath = mesh_.time().rootPath() + "/" + mesh_.time().globalCaseName() + "/" + mesh_.time().system();
-
-    IOdictionary fvSolutionDict
-    (
-      IOobject
-       (
-        // OF at least searches for file, because arbitrary file name throws FileNotFound error
-        // "fvSolution",
-        "dummyFile",
-        mesh_.time().system(),
-        mesh_,
-        IOobject::MUST_READ,
-        IOobject::NO_WRITE
-       )
-    );
-
-    // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
-    // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
-    fvSolutionDict = mesh_.lookupObject<IOdictionary>("fvSolution");
-
-    // take the two dicts for solver settings and PIMPLE settings and save into new dict since the 'fvSolutionDict' is
-    // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
-    // to the file after modifications
-    dictionary& solverDict = fvSolutionDict.subDict("solvers");
-
-    // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
-    // the values which are already present are overwritten by calling the set() method
-    solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
-
-    // replace the original solvers dict with the updated solver settings
-    fvSolutionDict.set("solvers", solverDict);
-
-    // check if all settings are modified correctly
-    // Info << fvSolutionDict.subDict("solvers").tokens() << endl;
-    // Info << "\n[DEBUG] registered objects in mesh_: " << mesh_.names() << endl;      // dummyFile is registered
-
-    // write the new solver settings to file
-    fvSolutionDict.regIOobject::write();            // works but doesn't modify the fvSolution / dummyFile file
-
-    */
-
-    // tmp work-around:
     // only modify the fvSolution file if we are on the master
     if (Pstream::master())
     {
-        // for now, we only modify 'interpolateCorrection', so just keep everything else const.
+        // map the action to the settings, at the moment only for 'interpolateCorrection'
+        word interpolateCorrection = "no";
+        /*
+        if (action_ == 1)
+        {
+           interpolateCorrection = "yes";
+        }
+        else
+        {
+            interpolateCorrection = "no";
+        }
+        */
+        // all available smoother for symmetric matrices (incompressible flow)
+        std::vector<word> smoother = {"FDIC", "DIC", "DICGaussSeidel", "symGaussSeidel", "nonBlockingGaussSeidel",
+                                      "GaussSeidel"};
+
+        // print the new settings to log file
+        Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
+             << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
+             << "'smoother'              = " << smoother[action_] << "\n\n" << endl;
+
+        /* not working yet
+        // try using abs path -> doesn't make a difference
+        // const word& testPath = mesh_.time().rootPath() + "/" + mesh_.time().globalCaseName() + "/" + mesh_.time().system();
+
+        IOdictionary fvSolutionDict
+        (
+          IOobject
+           (
+            // OF at least searches for file, because arbitrary file name throws FileNotFound error
+            // "fvSolution",
+            "dummyFile",
+            mesh_.time().system(),
+            mesh_,
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE
+           )
+        );
+
+        // read the 'fvSolutions' file and find the dict corresponding to the target quantity, e.g. 'p' or 'p_rgh'
+        // we can't access the fvSolution directly, however, mesh_ is a 'volScalarField' which is derived from fvSolution
+        fvSolutionDict = mesh_.lookupObject<IOdictionary>("fvSolution");
+
+        // take the two dicts for solver settings and PIMPLE settings and save into new dict since the 'fvSolutionDict' is
+        // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
+        // to the file after modifications
+        dictionary& solverDict = fvSolutionDict.subDict("solvers");
+
+        // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
+        // the values which are already present are overwritten by calling the set() method
+        solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
+
+        // replace the original solvers dict with the updated solver settings
+        fvSolutionDict.set("solvers", solverDict);
+
+        // check if all settings are modified correctly
+        // Info << fvSolutionDict.subDict("solvers").tokens() << endl;
+        // Info << "\n[DEBUG] registered objects in mesh_: " << mesh_.names() << endl;      // dummyFile is registered
+
+        // write the new solver settings to file
+        fvSolutionDict.regIOobject::write();            // works but doesn't modify the fvSolution / dummyFile file
+
+        */
+
+        // tmp work-around:
+        // for now, we only modify 'interpolateCorrection' or 'smoother', so just keep everything else const.
         const word& solverSettings = "\t{\n"
                                              "\t\tsolver \tGAMG;\n"
-                                             "\t\tsmoother \tDICGaussSeidel;\n"
+                                             "\t\tsmoother \t" + smoother[action_] + ";\n"
+                                             // "\t\tsmoother \tDICGaussSeidel;\n"
                                              "\t\ttolerance \t1e-06;\n"
                                              "\t\trelTol \t0.01;\n"
                                              "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
@@ -468,7 +490,7 @@ bool Foam::functionObjects::agentSolverSettings::write()
     return true;
 }
 
-void Foam::functionObjects::agentSolverSettings::saveTrajectory(scalar prob_out) const
+void Foam::functionObjects::agentSolverSettings::saveTrajectory(torch::Tensor prob_out) const
 {
     // taken from drlfoam, https://github.com/OFDataCommittee/drlfoam
     // for some reason values like 0.1, 0.2, ... are written out as 1, 2, ... if we write a csv file, but txt file works
@@ -479,13 +501,19 @@ void Foam::functionObjects::agentSolverSettings::saveTrajectory(scalar prob_out)
     if(!file.good())
     {
         // write header
-        trajectory << "t, prob, interpolateCorr";
+        // trajectory << "t, prob, interpolateCorr";
+        trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, action";
     }
 
     trajectory << std::setprecision(15)
                << "\n"
                << t << ", "
-               << prob_out << ", "
+               << prob_out[0][0].item<double>() << ", "
+               << prob_out[0][1].item<double>() << ", "
+               << prob_out[0][2].item<double>() << ", "
+               << prob_out[0][3].item<double>() << ", "
+               << prob_out[0][4].item<double>() << ", "
+               << prob_out[0][5].item<double>() << ", "
                << action_;
 }
 

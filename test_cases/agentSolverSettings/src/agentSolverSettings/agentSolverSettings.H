@@ -145,7 +145,7 @@ protected:
         word solverName_;
 
         // initialize variables for storing the action and probability, for now we only have a binary choice
-        bool action_;
+        int action_;
 
         // the following parameters are taken from drlfoam
         //- training or evaluation mode
@@ -184,7 +184,8 @@ protected:
         void writeResidualsToFile(Ostream& os, const word& fieldName);
 
         //- save the trajectory to file, taken from drlfoam, https://github.com/OFDataCommittee/drlfoam
-        void saveTrajectory(scalar prob_out) const;
+        // void saveTrajectory(scalar prob_out) const;
+        void saveTrajectory(torch::Tensor prob_out) const;
 
     // Generated Methods
 
