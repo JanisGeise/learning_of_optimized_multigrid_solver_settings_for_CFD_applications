@@ -19,7 +19,7 @@ def load_rewards(load_dir: str) -> dict:
     """
     files = sorted(glob(join(load_dir, "observations_*.pt")), key=lambda x: int(x.split("_")[-1].split(".")[0]))
     obs = [pt.load(join(f)) for f in files]
-    params = ["rewards", "actions", "probability", "t_per_dt"]
+    params = ["rewards", "actions", "t_per_dt"]
     obs_out = {}
 
     # add keys for mean and std. deviation to dict
@@ -97,9 +97,9 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="upper right", framealpha=1.0, ncol=2)
+    ax[0].legend(loc="lower right", framealpha=1.0, ncol=1)
     fig.subplots_adjust(wspace=0.2)
-    plt.savefig(join(save_dir, "rewards_vs_episode.png"), dpi=340)
+    plt.savefig(join(save_dir, "rewards_vs_episode_local_part2.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -107,11 +107,11 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
+    load_path = join("..", "run", "drl", "smoother", "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e100_r8_b8_f70_1st_test"]
+    cases = ["e80_r2_b8_f0.6_local_1st_test"]
 
     # legend entries for the plots
     legend = ["$1^{st}$ $test$"]

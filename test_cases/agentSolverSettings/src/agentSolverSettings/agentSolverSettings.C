@@ -337,7 +337,7 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
             std::bernoulli_distribution distr(prob_out);
             */
 
-            // use a discrete distribution in order to sample the soother; apparently it doesn't work to 1st convert
+            // use a discrete distribution in order to sample the smoother; apparently it doesn't work to 1st convert
             // the policy output and then use that as input, so put it directly into the distr
             std::discrete_distribution<> distr({policy_out[0][0].item<double>(), policy_out[0][1].item<double>(),
                                                 policy_out[0][2].item<double>(), policy_out[0][3].item<double>(),

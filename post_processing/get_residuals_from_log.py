@@ -195,9 +195,26 @@ def plot_correlations(data: pd.DataFrame, save_dir: str, save_name: str = "corre
     plt.close("all")
 
 
-def plot_results(x: list, y: list, save_dir: str, save_name: str = "", ylabel: str = "", xlabel: str = r"$t \, / \, T$",
-                 title: str = "", scaling_factor: Union[int, float] = 1, scale_dt: bool = False, log_path: str = None,
-                 legend_entries: list = None, log_y: bool = False) -> None:
+def plot_residuals(x: list, y: list, save_dir: str, save_name: str = "", ylabel: str = "", xlabel: str = r"$t \, / \, T$",
+                   title: str = "", scaling_factor: Union[int, float] = 1, scale_dt: bool = False, log_path: str = None,
+                   legend_entries: list = None, log_y: bool = False) -> None:
+    """
+    plot the results of the filtered solver log-file wrt the statistical properties of the GAMG residuals
+
+    :param x: x-values for each case
+    :param y: corresponding y-values
+    :param save_dir: directory to which the plot should be saved to
+    :param save_name: save name of the plot
+    :param ylabel: label for the y-axis
+    :param xlabel: label for the x-axis
+    :param title: title of the plot if wanted
+    :param scaling_factor: factor for making the time dimensionless if wanted
+    :param scale_dt: flag if execution time per time step should be scaled wrt total execution time of the simulation
+    :param log_path: path to the solver's log file in case 'scale_dt = True'
+    :param legend_entries: list containing the legend entries
+    :param log_y: flag if the y-axis should be logarithmic
+    :return: None
+    """
 
     # scale the num. time with period length of dominant frequency in the flow field
     x = [[i / scaling_factor for i in case] for case in x]
@@ -273,28 +290,28 @@ if __name__ == "__main__":
     plot_correlations(pd.DataFrame.from_dict(residuals).corr(), save_path, f"correlations_{append_to_save_name}")
 
     # plot execution time per time step
-    plot_results([residuals["time"]], [residuals["exec_time"]], save_path, ylabel=r"$t_{exec} \, / \, t_{total}$",
-                 save_name=f"t_exec_vs_dt_{append_to_save_name}", scale_dt=True, log_path=load_path,
-                 scaling_factor=factor, log_y=True)
+    plot_residuals([residuals["time"]], [residuals["exec_time"]], save_path, ylabel=r"$t_{exec} \, / \, t_{total}$",
+                   save_name=f"t_exec_vs_dt_{append_to_save_name}", scale_dt=True, log_path=load_path,
+                   scaling_factor=factor, log_y=True)
 
     # plot N solver iterations vs. time step
-    plot_results([residuals["time"]], [residuals["n_solver_iter"]], save_path, scaling_factor=factor,
-                 ylabel=r"$N_{iter, \, solver}$", save_name=f"pimple_iter_vs_dt_{append_to_save_name}")
+    plot_residuals([residuals["time"]], [residuals["n_solver_iter"]], save_path, scaling_factor=factor,
+                   ylabel=r"$N_{iter, \, solver}$", save_name=f"pimple_iter_vs_dt_{append_to_save_name}")
     
     # plot sum N GAMG iterations vs. time step
-    plot_results([residuals["time"]], [residuals["sum_gamg_iter"]], save_path, scaling_factor=factor, log_y=True,
-                 ylabel=r"$\sum{N_{GAMG}} \, / \, \Delta t$", save_name=f"sum_gamg_iter_vs_dt_{append_to_save_name}")
+    plot_residuals([residuals["time"]], [residuals["sum_gamg_iter"]], save_path, scaling_factor=factor, log_y=True,
+                   ylabel=r"$\sum{N_{GAMG}} \, / \, \Delta t$", save_name=f"sum_gamg_iter_vs_dt_{append_to_save_name}")
 
     # plot max. N GAMG iterations vs. time step
-    plot_results([residuals["time"]], [residuals["max_gamg_iter"]], save_path, scaling_factor=factor,
-                 ylabel=r"$N_{GAMG, \, max}$", save_name=f"max_gamg_iter_vs_dt_{append_to_save_name}")
+    plot_residuals([residuals["time"]], [residuals["max_gamg_iter"]], save_path, scaling_factor=factor,
+                   ylabel=r"$N_{GAMG, \, max}$", save_name=f"max_gamg_iter_vs_dt_{append_to_save_name}")
 
     # plot the max. initial residual vs. dt
-    plot_results([residuals["time"]], [residuals["max_init_residual"]], save_path, log_y=True, scaling_factor=factor,
-                 ylabel="$max(\\boldsymbol{R}_0)$", save_name=f"max_init_residual_vs_dt_{append_to_save_name}")
+    plot_residuals([residuals["time"]], [residuals["max_init_residual"]], save_path, log_y=True, scaling_factor=factor,
+                   ylabel="$max(\\boldsymbol{R}_0)$", save_name=f"max_init_residual_vs_dt_{append_to_save_name}")
 
     # plot max / median / min convergence rate vs. dt
-    plot_results(3*[residuals["time"]], [residuals["max_convergence_rate"], residuals["median_convergence_rate"],
-                                         residuals["min_convergence_rate"]],
-                 save_path, f"convergence_rate_vs_dt_{append_to_save_name}", ylabel="$|\Delta \\boldsymbol{R}|$",
-                 scaling_factor=factor, legend_entries=["$max.$", "$median$", "$min.$"], log_y=True)
+    plot_residuals(3*[residuals["time"]], [residuals["max_convergence_rate"], residuals["median_convergence_rate"],
+                                           residuals["min_convergence_rate"]],
+                   save_path, f"convergence_rate_vs_dt_{append_to_save_name}", ylabel="$|\Delta \\boldsymbol{R}|$",
+                   scaling_factor=factor, legend_entries=["$max.$", "$median$", "$min.$"], log_y=True)

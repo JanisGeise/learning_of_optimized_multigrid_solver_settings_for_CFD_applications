@@ -31,7 +31,7 @@ def load_total_exec_times(load_dir: str, simulations: List[list], default: list 
 
     :param load_dir: path to the main directory containing all simulations which are supposed to be loaded
     :param simulations: list of list with all simulations, each list will later be one line in the plot
-    :param default: the indices of the default setting, these cases will be used as reference for scaling
+    :param default: the indices of the default setting, these cases will be used as reference for scaling the exec. time
     :return: dict containing the scaled exec. times, n_subdomains and n_cells for each simulation
     """
     subdomains, t_exec, n_cells = [], [], []
