@@ -32,16 +32,16 @@ def compute_auto_correlations(data: List[dict], key_list: list) -> list:
 
 if __name__ == "__main__":
     # main path to all the cases
-    load_path = join(r"..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
+    load_path = join(r"..", "run", "parameter_study", "influence_solver_settings", "smoother")
 
     # list with the cases
-    cases = [join("no", "run_1"), join("yes", "run_1")]
+    cases = ["mixerVesselAMI_GaussSeidel", "mixerVesselAMI_DICGaussSeidel", "mixerVesselAMI_FDIC"]
 
     # legend entries for the plot
-    legend = ["$no$", "$yes$"]
+    legend = ["$GaussSeidel$", "$DICGaussSeidel$", "$FDIC$"]
 
     # save path for the plots
-    save_path = join(load_path, "plots")
+    save_path = join(load_path, "plots", "mixerVesselAMI")
 
     # dictionary keys of the properties of which the auto-correlations should be plotted
     keys = ["n_solver_iter", "sum_gamg_iter", "max_gamg_iter", "init_residual", "min_convergence_rate",
@@ -66,7 +66,7 @@ if __name__ == "__main__":
             log_data.append(pt.load(load_path_tmp))
         except FileNotFoundError:
             # adjust load path
-            load_path = join(load_path_tmp.split("log_data_filtered")[0])
+            load_path_tmp = join(load_path_tmp.split("log_data_filtered")[0])
 
             # else filter log file wrt GAMG & save the data from the log file
             pt.save(get_GAMG_residuals(load_path_tmp), join(load_path_tmp, "log_data_filtered.pt"))
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     ax[-1][0].set_xlabel("$time$ $delay$", fontsize=13)
     ax[-1][1].set_xlabel("$time$ $delay$", fontsize=13)
     fig.tight_layout()
-    ax[0][0].legend(loc="lower right", framealpha=1.0, ncol=2)
+    ax[0][0].legend(loc="lower right", framealpha=1.0, ncol=1)
     fig.subplots_adjust(hspace=0.2)
     plt.savefig(join(save_path, f"auto_correlations_residuals.png"), dpi=340)
     plt.show(block=False)

@@ -49,7 +49,12 @@ def load_total_exec_times(load_dir: str, simulations: List[list], default: list 
 
         # scale the execution times wrt default setup if a default case is given
         if default:
-            t_exec.append(pt.tensor(tmp_t) / tmp_t[default[idx]])
+            if type(default) == list:
+                # scale wrt the cases
+                t_exec.append(pt.tensor(tmp_t) / tmp_t[default[idx]])
+            else:
+                # scale all simulations with the same t_exec (comparison different decomp. methods)
+                t_exec.append(pt.tensor(tmp_t) / default)
         else:
             t_exec.append(tmp_t)
         subdomains.append(tmp_domains)
@@ -73,6 +78,11 @@ def plot_exec_times_vs_setting(data: dict, save_dir: str = "", save_name: str = 
     :return: None
     """
     fig, ax = plt.subplots(figsize=(6, 3))
+
+    # plot horizontal line as reference if scaled
+    # ax.hlines(1, 20, 80, color="black", ls="-.", alpha=0.5)
+    # ax.set_xlim(20, 80)
+
     for i in range(len(data["t_exec"])):
         if legend:
             ax.plot(data[key][i], data["t_exec"][i], label=legend_list[i], marker="x")
@@ -84,9 +94,9 @@ def plot_exec_times_vs_setting(data: dict, save_dir: str = "", save_name: str = 
     fig.tight_layout()
 
     if legend_list:
-        plt.legend(loc="lower right", framealpha=1.0, ncol=1)
+        plt.legend(loc="upper right", framealpha=1.0, ncol=1)
 
-    plt.savefig(join(save_dir, "plots", f"{save_name}.png"), dpi=340)
+    plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -94,39 +104,50 @@ def plot_exec_times_vs_setting(data: dict, save_dir: str = "", save_name: str = 
 
 if __name__ == "__main__":
     # path to the simulation results and save path for plots
-    load_path = join(r"..", "run", "parameter_study", "influence_grid")
-    save_path = join(r"..", "run", "parameter_study", "influence_grid")
+    load_path = join(r"..", "run", "parameter_study", "influence_n_subdomains")
+    save_path = join(load_path, "plots", "surfaceMountedCube")
 
     # the names of the directories of the simulations, each list will be plotted later as one line
     cases = [
-                ["mixerVesselAMI_coarseGrid", "mixerVesselAMI_defaultGrid", "mixerVesselAMI_fineGrid"],
-                ["surfaceMountedCube_coarseGrid", "surfaceMountedCube_defaultGrid", "surfaceMountedCube_fineGrid"]
+                ["surfaceMountedCube_20subdomains_simple", "surfaceMountedCube_36subdomains_simple",
+                 "surfaceMountedCube_40subdomains_simple", "surfaceMountedCube_60subdomains_simple",
+                 "surfaceMountedCube_80subdomains_simple"],
+                ["surfaceMountedCube_20subdomains_hierarchical", "surfaceMountedCube_36subdomains_hierarchical",
+                 "surfaceMountedCube_40subdomains_hierarchical", "surfaceMountedCube_60subdomains_hierarchical",
+                 "surfaceMountedCube_80subdomains_hierarchical"],
+                ["surfaceMountedCube_20subdomains_scotch", "surfaceMountedCube_36subdomains_scotch",
+                 "surfaceMountedCube_40subdomains_scotch", "surfaceMountedCube_60subdomains_scotch",
+                 "surfaceMountedCube_80subdomains_scotch"],
             ]
 
     # default setting for each simulation, used for scaling all execution times in order to compare the cases relative
     # to each other, if 'None', then the execution times will be plotted in [s], not scaled
-    default_idx = [1, 1]
+    # default_idx = [2, 2, 2]
+
+    # in case all the simulations should be scaled with one global execution times (not wrt cases)
+    default_idx = 136737
 
     # in case we want to scale the execution times, we need to provide a default value for each parameter setting (list)
-    if default_idx is not None:
+    if default_idx is not None and type(default_idx) == list:
         assert len(default_idx) == len(cases), "The index of the default setting need to be specified for each list" \
                                                " within the 'cases' list!"
 
     # save name of the plot
-    name = "t_exec_vs_n_cells"
+    name = "t_exec_vs_decomposition_method"
 
     # legend entries for the plot
-    legend = ["$mixerVesselAMI$", "$surfaceMountedCube$"]
+    legend = ["$simple$", "$hierarchical$", "$scotch$"]
 
-    # xlabel for the plot
-    xlabel = "$N_{cells}$"
+    # xlabel for the plot (will be ignored if N_cells or N_domains should be plotted)
+    xlabel = "$nCellsInCoarsestLevel$"
 
     # which parameter should be on the x-axis, if key != 'n_cells' or 'n_domains' then the x_label_list will be used
-    key = "n_cells"
+    key = "n_domains"
 
     # in case we don't have numeric values such as n_subdomains or n_cells for the x-axis use the x_label_list as
-    # x-tick-values
-    x_label_list = ["$GaussSeidel$", "$DICGaussSeidel$", "$FDIC$"]
+    # x-tick-values, otherwise this parameter will be ignored
+    # x_label_list = ["$GaussSeidel$", "$DICGaussSeidel$", "$FDIC$"]
+    x_label_list = [10, 100, 1000]
     # x_label_list = ["$no$", "$yes$"]
 
     # create directory for plots
@@ -142,6 +163,10 @@ if __name__ == "__main__":
     # add the x_label as key in case we don't want to use numeric values for the x-axis
     if key != "n_cells" and key != "n_domains":
         times[key] = [x_label_list] * len(cases)
+    elif key == "n_cells":
+        xlabel = "$N_{cells}$"
+    elif key == "n_domains":
+        xlabel = "$N_{domains}$"
 
     # plot the results
     plot_exec_times_vs_setting(times, save_path, save_name=name, legend_list=legend, x_label=xlabel)

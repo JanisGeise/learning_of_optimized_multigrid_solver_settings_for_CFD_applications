@@ -213,7 +213,7 @@ if __name__ == "__main__":
     # the names of the directories of the simulation with different grid refinement levels
     cases = ["weirOverflow_coarse_grid", "weirOverflow_default_grid", "weirOverflow_fine_grid"]
 
-    # name of the top-level directory where the plots should be saved, the plots will be in a subdirectory named 'plots'
+    # name of the top-level directory where the plots should be saved
     save_path = join(main_load_path, "plots")
 
     # factor for making the time dimensionless; here the period of the dominant frequency in the flow field is used
