@@ -115,19 +115,19 @@ def plot_probes(save_dir: str, data: list, n_probes: int = 10, title: str = "", 
 
 
 if __name__ == "__main__":
-    # path to the top-level directory containing the grid convergence study
+    # path to the top-level directory containing the results of all simulations which should be compared
     load_path = join(r"..", "run", "grid_convergence_study_weirOverflow")
 
-    # the names of the directories of the simulation with different grid refinement levels
+    # the names of the directories containing the results of each simulation
     cases = ["weirOverflow_coarse_grid", "weirOverflow_default_grid", "weirOverflow_fine_grid"]
 
     # legend entries for the plot
     legend = ["$coarse$", "$default$", "$fine$"]
 
-    # names of the files for which the probes should be plotted, e.g. 'U' or 'p_rgh'
+    # names of the fields defined in the control dict for which the probes should be plotted, e.g. 'U', 'p' or 'p_rgh'
     filenames = ["p_rgh", "U"]
 
-    # name of the top-level directory where the plots should be saved, the plots will be in a subdirectory named 'plots'
+    # name of the top-level directory where the plots should be saved
     save_path = join(load_path, "plots")
 
     # factor for making the time dimensionless; here the period of the dominant frequency in the flow field is used

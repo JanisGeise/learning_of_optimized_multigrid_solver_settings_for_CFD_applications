@@ -48,8 +48,8 @@ def get_n_cells_from_log(load_dir: str) -> int:
         n_cells = [int(line.split(" ")[-1].strip("\n")) for line in logfile if line.startswith("    cells: ")][0]
 
     # in case there is no log file from 'checkMesh' available, then check is snappyHexMesh was used
-    elif glob(join(load_path, f"log.snappyHexMesh")):
-        with open(glob(join(load_path, f"log.snappyHexMesh"))[0], "r") as f:
+    elif glob(join(load_dir, f"log.snappyHexMesh")):
+        with open(glob(join(load_dir, f"log.snappyHexMesh"))[0], "r") as f:
             logfile = f.readlines()
 
         # number of cells are located at the end of the log file
@@ -57,7 +57,7 @@ def get_n_cells_from_log(load_dir: str) -> int:
 
     else:
         # else use the log file from 'blockMesh'
-        with open(glob(join(load_path, f"log.blockMesh"))[0], "r") as f:
+        with open(glob(join(load_dir, f"log.blockMesh"))[0], "r") as f:
             logfile = f.readlines()
 
         # number of cells are located under 'Mesh Information' at the end of the log file
