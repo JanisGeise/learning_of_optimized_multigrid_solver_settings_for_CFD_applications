@@ -29,17 +29,23 @@ def load_rewards(load_dir: str) -> dict:
 
     for episode in range(len(obs)):
         # get the min. amount of time steps for each episode (in case dt != const. we can't just stack the tensors)
-        n_dt = [i["rewards"].size()[0] for i in obs[episode]]
-        tmp = pt.zeros((sum(n_dt), ))
+        # omit all failed trajectories
+        n_dt = [i["rewards"].size()[0] if "rewards" in i else None for i in obs[episode]]
+        tmp = pt.zeros((sum([i for i in n_dt if i is not None]), ))
 
         for key in params:
             for i, runner in enumerate(obs[episode]):
                 # we want the quantities' avg. wrt episode, so it's ok to stack all trajectories in one tensor
                 # since we avg. over all of them anyway
-                if i == 0:
-                    tmp[:n_dt[i]] = obs[episode][i][key]
+                if n_dt[i] is not None:
+                    if i == 0:
+                        tmp[:n_dt[i]] = obs[episode][i][key]
+                    else:
+                        start = sum([i for i in n_dt[:i] if i is not None])
+                        end = sum([i for i in n_dt[:i+1] if i is not None])
+                        tmp[start:end] = obs[episode][i][key]
                 else:
-                    tmp[sum(n_dt[:i]):sum(n_dt[:i+1])] = obs[episode][i][key]
+                    continue
 
             # compute the mean and st. deviation wrt episode
             obs_out[f"{key}_mean"].append(pt.mean(tmp).item())
@@ -97,9 +103,9 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="lower right", framealpha=1.0, ncol=1)
+    ax[0].legend(loc="upper left", framealpha=1.0, ncol=1)
     fig.subplots_adjust(wspace=0.2)
-    plt.savefig(join(save_dir, "rewards_vs_episode_local_part2.png"), dpi=340)
+    plt.savefig(join(save_dir, "rewards_vs_episode_local.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -107,14 +113,15 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "smoother", "results_cylinder2D")
+    load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e80_r2_b8_f0.6_local_1st_test"]
+    # cases = ["e100_r8_b8_f0.6_1st_test_cluster", "e100_r8_b8_f0.6_1st_test_cluster_2nd"]
+    cases = ["e50_r1_b8_f70_local_1st_test"]
 
     # legend entries for the plots
-    legend = ["$1^{st}$ $test$"]
+    legend = ["$1.$ $test$, $l_{traj} = 1000 = const.$", "$1.$ $test$, $l_{traj} = 1000 = const.$, $(2nd)$"]
 
     # create directory for plots
     if not path.exists(save_path):
