@@ -325,16 +325,11 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         std::vector<torch::jit::IValue> policyFeatures{features};
         torch::Tensor policy_out = policy_.forward(policyFeatures).toTensor();
 
-        /*
-        // convert prediction to scalar, at the moment the prediction contains only one value
-        scalar prob_out = policy_out[0][0].item<double>();
-        */
-
         if (train_)
         {
             /*
             // sampling from Bernoulli-distr. for 'interpolateCorrection'
-            std::bernoulli_distribution distr(prob_out);
+            std::bernoulli_distribution distr(policy_out[0][0].item<double>());
             */
 
             // use a discrete distribution in order to sample the smoother; apparently it doesn't work to 1st convert
@@ -352,7 +347,7 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
             /*
             // convert the probability to a bool -> 'interpolateCorrection'
-            if (prob_out <= 0.5)
+            if (policy_out[0][0].item<double>() <= 0.5)
             {
                 action_ = 0;
             }

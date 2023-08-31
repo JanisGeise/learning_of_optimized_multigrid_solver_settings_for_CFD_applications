@@ -3,6 +3,8 @@
     comparison to the results using e.g. the final (trained) policy of the DRL training. It is assumed that each case /
     setting is run multiple times in order to account for variations within the execution times which are not caused by
     the settings but e.g. by the scheduling of the HPC cluster
+
+    Note: the CPU times are taken in all cases
 """
 import torch as pt
 import matplotlib.pyplot as plt
@@ -24,18 +26,24 @@ if __name__ == "__main__":
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local", "nonBlockingGaussSeidel_local",
-             "GaussSeidel_local", "random_policy_local", "trained_policy_local"]
+    # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local", "nonBlockingGaussSeidel_local",
+    #          "GaussSeidel_local", "random_policy_local", "trained_policy_cluster"]
+    cases = ["DIC_local", "DICGaussSeidel_local", "trained_policy_local", "trained_policy_cluster",
+             "trained_policy_cluster_200_episodes"]
+    # cases = ["no_local", "yes_local", "trained_policy_local"]
 
     # xticks for the plots
-    xticks = ["$FDIC$", "$DIC$", "$DIC$\n$GaussSeidel$", "$sym$\n$GaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
-              "$GaussSeidel$", "$random$\n$policy$", "$trained$\n$policy$"]
+    # xticks = ["$FDIC$", "$DIC$", "$DIC$\n$GaussSeidel$", "$sym$\n$GaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
+    #           "$GaussSeidel$", "$random$\n$policy$", "$trained$\n$policy$"]
+    xticks = ["$DIC$", "$DICGaussSeidel$", "$policy, local$\n$(50$ $episodes)$", "$policy, HPC$\n$(100$ $episodes)$",
+              "$policy, HPC$\n$(200$ $episodes)$"]
+    # xticks = ["$no$", "$yes$", "$trained$\n$policy$"]
 
     # which case contains the default setting -> used for scaling the execution times
-    default_idx = 2
+    default_idx = 1
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = True
+    scale = False
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     # factor = 1 / 20
@@ -64,8 +72,10 @@ if __name__ == "__main__":
                 # all time steps per settings are the same, so just take the 1st one
                 results["time_step"].append(tmp[0][key])
             elif key == "t_exec":
-                results["mean_t_exec"].append(pt.mean(pt.cat([pt.from_numpy(i[key].values) for i in tmp])).item())
-                results["std_t_exec"].append(pt.std(pt.cat([pt.from_numpy(i[key].values) for i in tmp])).item())
+                # the total execution time (CPU) is the last value of t_exec (at last time step)
+                final_t_exec = pt.cat([pt.from_numpy(i[key].values)[-1].unsqueeze(-1) for i in tmp])
+                results["mean_t_exec"].append(pt.mean(final_t_exec))
+                results["std_t_exec"].append(pt.std(final_t_exec).item())
 
             elif key == "t_cpu":
                 # in some cases, the amount of dt might differ, although the same setup, seed etc. was used
@@ -130,6 +140,8 @@ if __name__ == "__main__":
 
             ax[0].set_ylabel(r"$\mu{(t_{exec})}$   $[s]$", fontsize=13)
             ax[1].set_ylabel(r"$\sigma{(t_{exec})}$   $[s]$", fontsize=13)
+            ax[0].set_yscale("log")
+            ax[1].set_yscale("log")
 
     ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     # ax[0].set_title(r"$'interpolateCorrection'$")
