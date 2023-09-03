@@ -17,11 +17,25 @@ from pandas import read_csv, DataFrame
 
 
 def load_cpu_times(case_path: str) -> DataFrame:
+    """
+    load the time steps, execution time and execution time per time step written out by the 'time' function object
+    throughout the simulation
+
+    :param case_path: path to the directory where the results of the simulation are located
+    :return: the time steps, execution time and execution time per time step (CPU times only)
+    """
     times = read_csv(case_path, sep="\t", comment="#", header=None, names=["t", "t_exec", "t_per_dt"], usecols=[0, 1, 3])
     return times
 
 
-def load_trajectory(load_dir: str):
+def load_trajectory(load_dir: str) -> pt.Tensor or None:
+    """
+    load the trajectories written out by the 'agentSolverSettings' function object throughout the simulation
+
+    :param load_dir: path to the directory where the results of the simulation are located
+    :return: the probabilities of the policy output if a policy was used, else None is returned, each column corresponds
+             to one output neuron of the policy network
+    """
     try:
         tr = pd.read_table(load_dir, sep=",")
 
@@ -170,9 +184,20 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     plt.close("all")
 
 
-def plot_probabilities(probs: list, n_dt: int, save_dir: str = "", save_name: str = "probabilities_vs_dt",
+def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: str = "probabilities_vs_dt",
                        sf: float = 1, param: str = "smoother", legend: list = None) -> None:
+    """
+    plot the loaded probabilities with respect to the time step and simulation
 
+    :param probs: loaded probabilities of the policy output for each case
+    :param time_steps: loaded time steps run for each case
+    :param save_dir: directory to which the plots should be saved to
+    :param save_name: name of the plot
+    :param sf: scaling factor for scaling the x-axis (non-dimensionalizing the time step)
+    :param param: labels for the probabilities, if 'smoother' the probabilities correspond to all available smoother
+    :param legend: list containing the legend entries
+    :return: None
+    """
     if param == "smoother":
         label = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
     else:
@@ -180,7 +205,7 @@ def plot_probabilities(probs: list, n_dt: int, save_dir: str = "", save_name: st
     # determine how many cases we have, which are using a policy (otherwise we don't have probabilities to plot)
     n_traj = sum([1 for i, p in enumerate(probs) if p is not None])
     counter, set_legend = 0, False
-    xmax = results["t"][0][n_dt] / sf
+    xmax = round(max([dt.tail(1).item() for i, dt in enumerate(time_steps) if probs[i] is not None]) / sf, 0)
 
     fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
 
@@ -192,9 +217,9 @@ def plot_probabilities(probs: list, n_dt: int, save_dir: str = "", save_name: st
             # loop over all available probabilities
             for j in range(p.size()[1]):
                 if not set_legend:
-                    ax[counter].plot(results["t"][i][:n_dt] / sf, p[:n_dt, j], color=color[j], label=label[j])
+                    ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j], label=label[j])
                 else:
-                    ax[counter].plot(results["t"][i][:n_dt] / sf, p[:n_dt, j], color=color[j])
+                    ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j])
 
                 # probabilities are in [0, 1]
                 # ax[counter].set_ylim(0, 1)
@@ -218,12 +243,12 @@ def plot_probabilities(probs: list, n_dt: int, save_dir: str = "", save_name: st
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
+    load_path = join("..", "run", "drl", "smoother", "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local", "nonBlockingGaussSeidel_local",
-    #          "GaussSeidel_local", "random_policy_local", "trained_policy_local"]
+    # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
+    #          "nonBlockingGaussSeidel_local", "GaussSeidel_local", "random_policy_local", "trained_policy_local"]
     cases = ["DIC_local", "DICGaussSeidel_local", "trained_policy_b5_new_sampling", "trained_policy_b10_new_sampling",
              "trained_policy_b20_new_sampling"]
     # cases = ["no_local", "yes_local", "trained_policy_local"]
@@ -265,12 +290,12 @@ if __name__ == "__main__":
                                      save_dir=save_path, scale_wrt_default=scale, default=default_idx,
                                      save_name="mean_n_dt")
 
+    # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
+    plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks)
+
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
     min_n_dt = min([len(i) for i in results["t"]])
-
-    # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
-    plot_probabilities(results["mean_probs"], min_n_dt, save_dir=save_path, sf=factor, legend=xticks)
 
     # plot the execution time wrt time step
     fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")
