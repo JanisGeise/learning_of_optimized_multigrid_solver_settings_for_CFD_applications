@@ -496,7 +496,7 @@ void Foam::functionObjects::agentSolverSettings::saveTrajectory(torch::Tensor pr
     if(!file.good())
     {
         // write header
-        // trajectory << "t, prob, interpolateCorr";
+        // trajectory << "t, prob0, action";
         trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, action";
     }
 

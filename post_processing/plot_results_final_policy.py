@@ -7,6 +7,7 @@
     Note: the CPU times are taken in all cases (per time step and for total execution time of the simulation)
 """
 import torch as pt
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from glob import glob
@@ -18,6 +19,22 @@ from pandas import read_csv, DataFrame
 def load_cpu_times(case_path: str) -> DataFrame:
     times = read_csv(case_path, sep="\t", comment="#", header=None, names=["t", "t_exec", "t_per_dt"], usecols=[0, 1, 3])
     return times
+
+
+def load_trajectory(load_dir: str):
+    try:
+        tr = pd.read_table(load_dir, sep=",")
+
+        # we don't need time step (loaded with CPU times) and action (action = category with the highest probability)
+        tr.drop(columns=["t", " action"], inplace=True)
+
+        # convert to tensor, so we can avg. etc. easier later
+        tr = pt.from_numpy(tr.values)
+
+    except FileNotFoundError:
+        tr = None
+
+    return tr
 
 
 def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
@@ -32,17 +49,18 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
     :return: dict containing the mean t_exec, t_per_dt & n_dt and the corresponding std. deviation
     """
     out_dict = {"t": [], "mean_t_exec": [], "std_t_exec": [], "mean_t_per_dt": [], "std_t_per_dt": [], "mean_n_dt": [],
-                "std_n_dt": []}
+                "std_n_dt": [], "mean_probs": []}
 
     for s in simulations:
-        tmp = []
+        tmp, traj_tmp = [], []
 
         # for each case glob all runs so we can compute the avg. runtimes etc.
         for i, case in enumerate(glob(join(load_dir, s, "*"))):
             tmp.append(load_cpu_times(join(case, "postProcessing", "time", "0", "timeInfo.dat")))
+            traj_tmp.append(load_trajectory(join(case, "trajectory.txt")))
 
         # sort the results from each case into a dict, assuming we ran multiple cases for each config.
-        for key in list(tmp[0].keys()) + ["n_dt"]:
+        for key in list(tmp[0].keys()) + ["n_dt", "probs"]:
             if key == "t":
                 # all time steps per settings are the same, so just take the 1st one
                 out_dict[key].append(tmp[0][key])
@@ -67,6 +85,17 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
             elif key == "n_dt":
                 out_dict[f"mean_{key}"].append(pt.mean(pt.tensor([float(i["t"].size) for i in tmp])))
                 out_dict[f"std_{key}"].append(pt.std(pt.tensor([float(i["t"].size) for i in tmp])))
+
+            # compute the mean probability for each decision (e.g. for each smoother). Std. dev. should be zero if all
+            # simulations per setting are initialized with same seed value and run with same policy, so just save mean
+            elif key == "probs":
+                # we only have a trajectory if we used a policy, for the smoother benchmarks skip (we append None, so
+                # in that case check if the first list is empty)
+                if traj_tmp[0] is None:
+                    # appending None makes it easier to plot later
+                    out_dict[f"mean_{key}"].append(None)
+                else:
+                    out_dict[f"mean_{key}"].append(pt.mean(pt.stack([i for i in traj_tmp], dim=-1), dim=-1))
 
             else:
                 continue
@@ -141,6 +170,52 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     plt.close("all")
 
 
+def plot_probabilities(probs: list, n_dt: int, save_dir: str = "", save_name: str = "probabilities_vs_dt",
+                       sf: float = 1, param: str = "smoother", legend: list = None) -> None:
+
+    if param == "smoother":
+        label = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    else:
+        label = 20 * [""]
+    # determine how many cases we have, which are using a policy (otherwise we don't have probabilities to plot)
+    n_traj = sum([1 for i, p in enumerate(probs) if p is not None])
+    counter, set_legend = 0, False
+    xmax = results["t"][0][n_dt] / sf
+
+    fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
+
+    for i, p in enumerate(probs):
+        # reset color cycle for each case, so that all probs have the same color
+        color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+
+        if p is not None:
+            # loop over all available probabilities
+            for j in range(p.size()[1]):
+                if not set_legend:
+                    ax[counter].plot(results["t"][i][:n_dt] / sf, p[:n_dt, j], color=color[j], label=label[j])
+                else:
+                    ax[counter].plot(results["t"][i][:n_dt] / sf, p[:n_dt, j], color=color[j])
+
+                # probabilities are in [0, 1]
+                # ax[counter].set_ylim(0, 1)
+                ax[counter].set_xlim(0, xmax)
+                ax[counter].set_yscale("log")
+                ax[counter].set_ylabel(r"$\mathbb{P}$", fontsize=13)
+                ax[counter].annotate(legend[i], xy=(xmax + xmax * 0.025, 0.5), fontsize=13,
+                                     xycoords=ax[counter].get_xaxis_transform())
+            counter += 1
+            set_legend = True
+
+    ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
+    fig.tight_layout()
+    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
+    fig.subplots_adjust(top=0.94)
+    plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
+    plt.show(block=False)
+    plt.pause(2)
+    plt.close("all")
+
+
 if __name__ == "__main__":
     # main path to all the cases and save path
     load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
@@ -149,19 +224,19 @@ if __name__ == "__main__":
     # names of top-level directory containing the simulations run with different settings
     # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local", "nonBlockingGaussSeidel_local",
     #          "GaussSeidel_local", "random_policy_local", "trained_policy_local"]
-    cases = ["DIC_local", "DICGaussSeidel_local", "trained_policy_local", "trained_policy_cluster",
-             "trained_policy_cluster_200_episodes"]
+    cases = ["DIC_local", "DICGaussSeidel_local", "trained_policy_b5_new_sampling", "trained_policy_b10_new_sampling",
+             "trained_policy_b20_new_sampling"]
     # cases = ["no_local", "yes_local", "trained_policy_local"]
 
     # xticks for the plots
     # xticks = ["$FDIC$", "$DIC$", "$DIC$\n$GaussSeidel$", "$sym$\n$GaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
     #           "$GaussSeidel$", "$random$\n$policy$", "$trained$\n$policy$"]
-    xticks = ["$DIC$", "$DICGaussSeidel$", "$policy, local$\n$(50$ $episodes)$", "$policy, HPC$\n$(100$ $episodes)$",
-              "$policy, HPC$\n$(200$ $episodes)$"]
+    xticks = ["$DIC$", "$DICGaussSeidel$", "$final$ $policy$\n$(b = 5)$",  "$final$ $policy$\n$(b = 10)$",
+              "$final$ $policy$\n$(b = 20)$"]
     # xticks = ["$no$", "$yes$", "$trained$ $policy$"]
 
     # which case contains the default setting -> used for scaling the execution times
-    default_idx = 2
+    default_idx = 1
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
     scale = True
@@ -178,6 +253,7 @@ if __name__ == "__main__":
 
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
+    plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
 
     results = get_mean_and_std_exec_time(load_path, cases)
 
@@ -192,6 +268,9 @@ if __name__ == "__main__":
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
     min_n_dt = min([len(i) for i in results["t"]])
+
+    # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
+    plot_probabilities(results["mean_probs"], min_n_dt, save_dir=save_path, sf=factor, legend=xticks)
 
     # plot the execution time wrt time step
     fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")

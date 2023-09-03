@@ -32,16 +32,19 @@ def compute_auto_correlations(data: List[dict], key_list: list) -> list:
 
 if __name__ == "__main__":
     # main path to all the cases
-    load_path = join(r"..", "run", "parameter_study", "influence_solver_settings", "smoother")
+    load_path = join(r"..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
 
     # list with the cases
-    cases = ["mixerVesselAMI_GaussSeidel", "mixerVesselAMI_DICGaussSeidel", "mixerVesselAMI_FDIC"]
+    cases = ["FDIC_local/run_1", "DIC_local/run_1", "DICGaussSeidel_local/run_1", "symGaussSeidel_local/run_1",
+             "nonBlockingGaussSeidel_local/run_1", "GaussSeidel_local/run_1"]
+    cases = ["no_local/run_1", "yes_local/run_1"]
 
     # legend entries for the plot
-    legend = ["$GaussSeidel$", "$DICGaussSeidel$", "$FDIC$"]
+    # legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    legend = ["$no$", "$yes$"]
 
     # save path for the plots
-    save_path = join(load_path, "plots", "mixerVesselAMI")
+    save_path = join(load_path, "plots")
 
     # dictionary keys of the properties of which the auto-correlations should be plotted
     keys = ["n_solver_iter", "sum_gamg_iter", "max_gamg_iter", "init_residual", "min_convergence_rate",
@@ -97,7 +100,7 @@ if __name__ == "__main__":
     ax[-1][0].set_xlabel("$time$ $delay$", fontsize=13)
     ax[-1][1].set_xlabel("$time$ $delay$", fontsize=13)
     fig.tight_layout()
-    ax[0][0].legend(loc="lower right", framealpha=1.0, ncol=1)
+    ax[0][0].legend(loc="upper right", framealpha=1.0, ncol=1)
     fig.subplots_adjust(hspace=0.2)
     plt.savefig(join(save_path, f"auto_correlations_residuals.png"), dpi=340)
     plt.show(block=False)
