@@ -279,12 +279,10 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     // write the computed properties of the residuals to the dat-file in the 'postProcessing' directory
     writeResidualsToFile(file(), fieldName);
 
-    // TODO: force OF to re-read the fvSolution file, otherwise it is re-read the next time step somehow using regIOobject::readModifiedObjects();
-    // mesh_.time().readModifiedObjects();          // not working
-
-    // file is never marked as modified for some reason
-    // bool registryModified = mesh_.objectRegistry::modified();
-    // Info << "\n[DEBUG] " <<  registryModified << "\n" << endl;
+    // force to re-read the fvSolution file (because function object is executed after checking if files have been modified)
+    // compare: https://www.openfoam.com/documentation/guides/latest/api/Time_8C_source.html#l00879, line 908 / 929
+    // and https://www.openfoam.com/documentation/guides/latest/api/classFoam_1_1Time.html#a6cde1928adb66791e09902caf9ce29fa
+    const_cast<Time&>(mesh_.time()).readModifiedObjects();
 
     return true;
 }
@@ -390,21 +388,16 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
              << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
              << "'smoother'              = " << smoother[action_] << "\n\n" << endl;
 
-        /* not working yet
-        // try using abs path -> doesn't make a difference
-        // const word& testPath = mesh_.time().rootPath() + "/" + mesh_.time().globalCaseName() + "/" + mesh_.time().system();
-
+        /*
         IOdictionary fvSolutionDict
         (
           IOobject
            (
-            // OF at least searches for file, because arbitrary file name throws FileNotFound error
-            // "fvSolution",
-            "dummyFile",
+            "fvSolution",
             mesh_.time().system(),
             mesh_,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
            )
         );
 
@@ -420,20 +413,22 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
         // the values which are already present are overwritten by calling the set() method
         solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
+        solverDict.subDict(fieldName).set("smoother", smoother[action_]);
 
         // replace the original solvers dict with the updated solver settings
         fvSolutionDict.set("solvers", solverDict);
 
-        // check if all settings are modified correctly
-        // Info << fvSolutionDict.subDict("solvers").tokens() << endl;
-        // Info << "\n[DEBUG] registered objects in mesh_: " << mesh_.names() << endl;      // dummyFile is registered
-
         // write the new solver settings to file
-        fvSolutionDict.regIOobject::write();            // works but doesn't modify the fvSolution / dummyFile file
+        fvSolutionDict.regIOobject::write();
+
+        // check if the smoother was successfully modified -> always 1 dt delay, because re-reading is executed prior FO
+        Info << "[DEBUG] current smoother: " <<
+                 mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<word>("smoother")
+                 << "\n" << endl;
 
         */
 
-        // tmp work-around:
+        //* tmp work-around:
         // for now, we only modify 'interpolateCorrection' or 'smoother', so just keep everything else const.
         const word& solverSettings = "\t{\n"
                                              "\t\tsolver \tGAMG;\n"
@@ -446,6 +441,7 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
 
         // update the fvSolution file
         writeFvSolutionFile(solverSettings, fieldName, 5);
+        //*/
     }
 }
 
