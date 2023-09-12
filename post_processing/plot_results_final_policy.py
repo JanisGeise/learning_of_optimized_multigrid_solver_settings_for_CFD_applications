@@ -200,6 +200,11 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     """
     if param == "smoother":
         label = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    elif param is not None:
+        if type(param) != list:
+            label = [param]
+        else:
+            label = param
     else:
         label = 20 * [""]
     # determine how many cases we have, which are using a policy (otherwise we don't have probabilities to plot)
@@ -218,11 +223,15 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
             for j in range(p.size()[1]):
                 if not set_legend:
                     ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j], label=label[j])
+
+                    # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
+                    # ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
                 else:
                     ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j])
 
-                # probabilities are in [0, 1]
-                # ax[counter].set_ylim(0, 1)
+                    # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
+                    # ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+
                 ax[counter].set_xlim(0, xmax)
                 ax[counter].set_yscale("log")
                 ax[counter].set_ylabel(r"$\mathbb{P}$", fontsize=13)
@@ -243,25 +252,23 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "smoother", "results_cylinder2D")
+    load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
     # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
-    #          "nonBlockingGaussSeidel_local", "GaussSeidel_local", "random_policy_local", "trained_policy_local"]
-    cases = ["DIC_local", "DICGaussSeidel_local", "trained_policy_b5_new_sampling", "trained_policy_b10_new_sampling",
-             "trained_policy_b20_new_sampling"]
-    # cases = ["no_local", "yes_local", "trained_policy_local"]
+    #          "nonBlockingGaussSeidel_local", "GaussSeidel_local"]
+    cases = ["policy_default_smoother_only", "trained_policy_b5_fixed_dt_issue",
+             "trained_policy_b10_fixed_dt_issue", "trained_policy_b20_fixed_dt_issue"]
 
     # xticks for the plots
-    # xticks = ["$FDIC$", "$DIC$", "$DIC$\n$GaussSeidel$", "$sym$\n$GaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
-    #           "$GaussSeidel$", "$random$\n$policy$", "$trained$\n$policy$"]
-    xticks = ["$DIC$", "$DICGaussSeidel$", "$final$ $policy$\n$(b = 5)$",  "$final$ $policy$\n$(b = 10)$",
+    # xticks = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
+    #           "$GaussSeidel$"]
+    xticks = ["$DICGaussSeidel$\n$(policy)$", "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$",
               "$final$ $policy$\n$(b = 20)$"]
-    # xticks = ["$no$", "$yes$", "$trained$ $policy$"]
 
     # which case contains the default setting -> used for scaling the execution times
-    default_idx = 1
+    default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
     scale = True
@@ -292,6 +299,7 @@ if __name__ == "__main__":
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
     plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks)
+                       # param="$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$")
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
@@ -320,7 +328,6 @@ if __name__ == "__main__":
             ax[1].set_yscale("log")
 
     ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
-    # ax[0].set_title(r"$'interpolateCorrection'$")
     fig.tight_layout()
     fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=3)
     fig.subplots_adjust(top=0.86)

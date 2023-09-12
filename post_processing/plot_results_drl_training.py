@@ -103,9 +103,9 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="upper left", framealpha=1.0, ncol=1)
+    ax[0].legend(loc="lower left", framealpha=1.0, ncol=4)
     fig.subplots_adjust(wspace=0.2)
-    plt.savefig(join(save_dir, "rewards_vs_episode_local.png"), dpi=340)
+    plt.savefig(join(save_dir, "rewards_vs_episode.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -117,11 +117,11 @@ if __name__ == "__main__":
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    # cases = ["e100_r8_b8_f0.6_1st_test_cluster", "e100_r8_b8_f0.6_1st_test_cluster_2nd"]
-    cases = ["e50_r1_b8_f70_local_1st_test"]
+    cases = ["e100_r5_b5_f70_cluster_fixed_dt_issue", "e100_r5_b10_f70_cluster_fixed_dt_issue",
+             "e100_r5_b20_f70_cluster_fixed_dt_issue"]
 
     # legend entries for the plots
-    legend = ["$1.$ $test$, $l_{traj} = 1000 = const.$", "$1.$ $test$, $l_{traj} = 1000 = const.$, $(2nd)$"]
+    legend = ["$b = 5$", "$b = 10$", "$b = 20$"]
 
     # create directory for plots
     if not path.exists(save_path):

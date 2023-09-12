@@ -103,6 +103,7 @@ SourceFiles
 #include "fvMeshFunctionObject.H"
 #include "writeFile.H"
 #include "solverFieldSelection.H"
+// #include "pimpleControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -118,6 +119,7 @@ namespace functionObjects
 class agentSolverSettings
 :
     public fvMeshFunctionObject,
+    // public pimpleControl,
     public writeFile
 {
 protected:
@@ -144,8 +146,8 @@ protected:
         torch::Tensor convergenceRate_;
         word solverName_;
 
-        // initialize variables for storing the action and probability, for now we only have a binary choice
-        int action_;
+        // initialize vector for storing the actions ('interpolateCorrection' and 'smoother')
+        std::vector<int> action_ = {0, 0};
 
         // the following parameters are taken from drlfoam
         //- training or evaluation mode

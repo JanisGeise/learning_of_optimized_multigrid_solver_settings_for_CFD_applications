@@ -60,7 +60,7 @@ void Foam::functionObjects::agentSolverSettings::writeFileHeader(Ostream& os, co
     }
     else
     {
-        writeHeader(os, "Solver information");
+        writeFile::writeHeader(os, "Solver information");
     }
 
     writeCommented(os, "Time");
@@ -118,7 +118,7 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
 
 void Foam::functionObjects::agentSolverSettings::computeResidualProperties(const word& fieldName)
 {
-    const Foam::dictionary& solverDict = mesh_.solverPerformanceDict();
+    const Foam::dictionary& solverDict = fvMeshFunctionObject::mesh_.solverPerformanceDict();
 
     const List<SolverPerformance<scalar>> sp
     (
@@ -184,8 +184,14 @@ Foam::functionObjects::agentSolverSettings::agentSolverSettings
 )
 :
     fvMeshFunctionObject(name, runTime, dict),
+
+    // taken from Tomislav Maric (line 135, 136):
+    // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
+    // pimpleControl(const_cast<fvMesh&>(fvMeshFunctionObject::mesh_)),
+    // mesh_(fvMeshFunctionObject::mesh_),          // NOT WORKING
+
     writeFile(obr_, name, typeName, dict),
-    fieldSet_(mesh_),
+    fieldSet_(fvMeshFunctionObject::mesh_),
     residualFieldNames_(),
     initialised_(false),
     train_(dict.get<bool>("train")),
@@ -238,7 +244,7 @@ bool Foam::functionObjects::agentSolverSettings::execute()
 
     // make sure the specified field is a scalar field, in our case some sort of pressure field. After these checks, we
     // can be sure to have the correct field and therefore don't need to check in subsequent methods
-    const bool fieldExists = mesh_.foundObject<volScalarField>(fieldName);
+    const bool fieldExists = fvMeshFunctionObject::mesh_.foundObject<volScalarField>(fieldName);
     if (!fieldExists)
     {
         Info << "[agentSolverSettings]: specified field is either not a scalar field or doesn't exist! Make sure that"
@@ -282,7 +288,7 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     // force to re-read the fvSolution file (because function object is executed after checking if files have been modified)
     // compare: https://www.openfoam.com/documentation/guides/latest/api/Time_8C_source.html#l00879, line 908 / 929
     // and https://www.openfoam.com/documentation/guides/latest/api/classFoam_1_1Time.html#a6cde1928adb66791e09902caf9ce29fa
-    const_cast<Time&>(mesh_.time()).readModifiedObjects();
+    const_cast<Time&>(fvMeshFunctionObject::mesh_.time()).readModifiedObjects();
 
     return true;
 }
@@ -325,35 +331,36 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
         if (train_)
         {
-            /*
-            // sampling from Bernoulli-distr. for 'interpolateCorrection'
-            std::bernoulli_distribution distr(policy_out[0][0].item<double>());
-            */
+            // the 1st item is for sampling from Bernoulli-distr. for 'interpolateCorrection'
+            std::bernoulli_distribution distr1(policy_out[0][0].item<double>());
 
-            // use a discrete distribution in order to sample the smoother; apparently it doesn't work to 1st convert
-            // the policy output and then use that as input, so put it directly into the distr
-            std::discrete_distribution<> distr({policy_out[0][0].item<double>(), policy_out[0][1].item<double>(),
-                                                policy_out[0][2].item<double>(), policy_out[0][3].item<double>(),
-                                                policy_out[0][4].item<double>(), policy_out[0][5].item<double>()});
-            action_ = distr(gen_);
+            // use a discrete distribution in order to sample the smoother
+            std::discrete_distribution<> distr2({policy_out[0][1].item<double>(), policy_out[0][2].item<double>(),
+                                                policy_out[0][3].item<double>(), policy_out[0][4].item<double>(),
+                                                policy_out[0][5].item<double>(), policy_out[0][6].item<double>()});
+
+            action_[0] = distr1(gen_);          // action for 'interpolateCorrection'
+            action_[1] = distr2(gen_);          // action for 'smoother'
         }
 
         else
         {
-            // take the smoother which has the highest probability
-            action_ = torch::argmax(policy_out).item<int>();
-
-            /*
-            // convert the probability to a bool -> 'interpolateCorrection'
+            // convert the probability for 'interpolateCorrection' to a bool
             if (policy_out[0][0].item<double>() <= 0.5)
             {
-                action_ = 0;
+                action_[0] = 0;
             }
             else
             {
-                action_ = 1;
+                action_[0] = 1;
             }
-            */
+
+            // take the smoother which has the highest probability
+            action_[1] = torch::argmax(torch::tensor({
+                                                        policy_out[0][1].item<double>(), policy_out[0][2].item<double>(),
+                                                        policy_out[0][3].item<double>(), policy_out[0][4].item<double>(),
+                                                        policy_out[0][5].item<double>(), policy_out[0][6].item<double>()
+                                                        })).item<int>();
         }
 
         // save the policy output, the execution time per time step is logged using the 'timeInfo' function object
@@ -367,10 +374,10 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
     // only modify the fvSolution file if we are on the master
     if (Pstream::master())
     {
-        // map the action to the settings, at the moment only for 'interpolateCorrection'
-        word interpolateCorrection = "no";
-        /*
-        if (action_ == 1)
+        // map the action to the settings for 'interpolateCorrection'
+        word interpolateCorrection;
+
+        if (action_[0] == 1)
         {
            interpolateCorrection = "yes";
         }
@@ -378,7 +385,7 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         {
             interpolateCorrection = "no";
         }
-        */
+
         // all available smoother for symmetric matrices (incompressible flow)
         std::vector<word> smoother = {"FDIC", "DIC", "DICGaussSeidel", "symGaussSeidel", "nonBlockingGaussSeidel",
                                       "GaussSeidel"};
@@ -386,9 +393,14 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // print the new settings to log file
         Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
              << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
-             << "'smoother'              = " << smoother[action_] << "\n\n" << endl;
+             << "'smoother'              = " << smoother[action_[1]] << "\n\n" << endl;
 
-        /*
+        /* taken from Tomislav Maric (line 135, 136):
+        // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
+        const fvSolution& fvSolutionDict (fvMeshFunctionObject::mesh_);
+        fvSolution& fvSolutionRef = const_cast<fvSolution&>(fvSolutionDict);
+        auto& solverDict = fvSolutionRef.subDict("solvers");
+
         IOdictionary fvSolutionDict
         (
           IOobject
@@ -416,24 +428,23 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         solverDict.subDict(fieldName).set("smoother", smoother[action_]);
 
         // replace the original solvers dict with the updated solver settings
-        fvSolutionDict.set("solvers", solverDict);
+        // fvSolutionDict.set("solvers", solverDict);
 
         // write the new solver settings to file
-        fvSolutionDict.regIOobject::write();
+        // fvSolutionDict.regIOobject::write();
 
         // check if the smoother was successfully modified -> always 1 dt delay, because re-reading is executed prior FO
         Info << "[DEBUG] current smoother: " <<
-                 mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<word>("smoother")
+                 fvMeshFunctionObject::mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<word>("smoother")
                  << "\n" << endl;
 
         */
 
-        //* tmp work-around:
+        // tmp work-around:
         // for now, we only modify 'interpolateCorrection' or 'smoother', so just keep everything else const.
         const word& solverSettings = "\t{\n"
                                              "\t\tsolver \tGAMG;\n"
-                                             "\t\tsmoother \t" + smoother[action_] + ";\n"
-                                             // "\t\tsmoother \tDICGaussSeidel;\n"
+                                             "\t\tsmoother \t" + smoother[action_[1]] + ";\n"
                                              "\t\ttolerance \t1e-06;\n"
                                              "\t\trelTol \t0.01;\n"
                                              "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
@@ -451,7 +462,7 @@ bool Foam::functionObjects::agentSolverSettings::write()
     for (const word& residualName : residualFieldNames_)
     {
         const auto* residualPtr =
-            mesh_.findObject<IOField<scalar>>(residualName);
+            fvMeshFunctionObject::mesh_.findObject<IOField<scalar>>(residualName);
 
         if (residualPtr)
         {
@@ -460,13 +471,13 @@ bool Foam::functionObjects::agentSolverSettings::write()
                 IOobject
                 (
                     residualName,
-                    mesh_.time().timeName(),
-                    mesh_,
+                    fvMeshFunctionObject::mesh_.time().timeName(),
+                    fvMeshFunctionObject::mesh_,
                     IOobject::NO_READ,
                     IOobject::NO_WRITE,
                     false
                 ),
-                mesh_,
+                fvMeshFunctionObject::mesh_,
                 dimensionedScalar(dimless, Zero),
                 zeroGradientFvPatchField<scalar>::typeName
             );
@@ -487,25 +498,29 @@ void Foam::functionObjects::agentSolverSettings::saveTrajectory(torch::Tensor pr
     // for some reason values like 0.1, 0.2, ... are written out as 1, 2, ... if we write a csv file, but txt file works
     std::ifstream file("trajectory.txt");
     std::fstream trajectory("trajectory.txt", std::ios::app | std::ios::binary);
-    const word t = mesh_.time().timeName();
+    const word t = fvMeshFunctionObject::mesh_.time().timeName();
 
     if(!file.good())
     {
-        // write header
-        // trajectory << "t, prob0, action";
-        trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, action";
+        // write header, action0 = action for 'interpolateCorrection', action1 = action for 'smoother'
+        trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, action0, action1";
     }
 
     trajectory << std::setprecision(15)
                << "\n"
                << t << ", "
+               // probability for 'interpolateCorrection'
                << prob_out[0][0].item<double>() << ", "
+
+               // probabilities for 'smoother'
                << prob_out[0][1].item<double>() << ", "
                << prob_out[0][2].item<double>() << ", "
                << prob_out[0][3].item<double>() << ", "
                << prob_out[0][4].item<double>() << ", "
                << prob_out[0][5].item<double>() << ", "
-               << action_;
+               << prob_out[0][6].item<double>() << ", "
+               << action_[0] << ", "
+               << action_[1];
 }
 
 
@@ -514,7 +529,7 @@ void Foam::functionObjects::agentSolverSettings::writeFvSolutionFile(const word&
 {
     // this function modifies the fvSolution dict, however this is very inefficient and just for testing purposes
     // TODO: use IO objects / dict to modify this file more efficiently and faster, currently OF is crashing due to IO
-    const fileName& systemDir = mesh_.time().system();
+    const fileName& systemDir = fvMeshFunctionObject::mesh_.time().system();
 
     // for now just use backslash until i figured out how to assemble the path independently of os
     std::ifstream file("./" + systemDir + "/" + "fvSolution");
