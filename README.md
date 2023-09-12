@@ -25,6 +25,15 @@ cases can be found under:
 
     `$FOAM_TUTORIALS/multiphase/interFoam/RAS/`
 
+
+4. *cylinder2D*:
+
+    `$FOAM_TUTORIALS/incompressible/pimpleFoam/laminar/`
+
+The policies in each simulation directory (`policy.pt`) of the test cases is a randomly initialized policy unsing the
+`create_dummy_policy.py` script within [drlfoam](https://github.com/JanisGeise/drlfoam/tree/solver_settings). These
+policies will be replaced with trained ones once the DRL_training routine is completed.
+
 ### Run simulations locally
 
 #### without container

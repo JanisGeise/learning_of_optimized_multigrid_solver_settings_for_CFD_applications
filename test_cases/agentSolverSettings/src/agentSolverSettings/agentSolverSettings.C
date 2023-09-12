@@ -503,7 +503,7 @@ void Foam::functionObjects::agentSolverSettings::saveTrajectory(torch::Tensor pr
     if(!file.good())
     {
         // write header, action0 = action for 'interpolateCorrection', action1 = action for 'smoother'
-        trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, action0, action1";
+        trajectory << "t, prob0, prob1, prob2, prob3, prob4, prob5, prob6, action0, action1";
     }
 
     trajectory << std::setprecision(15)
