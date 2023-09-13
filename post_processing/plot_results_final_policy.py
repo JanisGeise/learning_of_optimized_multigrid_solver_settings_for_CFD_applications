@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from glob import glob
+from typing import Union
 from os.path import join
 from os import path, makedirs
 from pandas import read_csv, DataFrame
@@ -40,7 +41,13 @@ def load_trajectory(load_dir: str) -> pt.Tensor or None:
         tr = pd.read_table(load_dir, sep=",")
 
         # we don't need time step (loaded with CPU times) and action (action = category with the highest probability)
-        tr.drop(columns=["t", " action"], inplace=True)
+        tr.drop(columns=["t"], inplace=True)
+        try:
+            # in case we have 2 actions (new version of DRL training)
+            tr.drop(columns=[" action0", " action1"], inplace=True)
+        except KeyError:
+            # otherwise there should only be one action
+            tr.drop(columns=[" action"], inplace=True)
 
         # convert to tensor, so we can avg. etc. easier later
         tr = pt.from_numpy(tr.values)
@@ -185,7 +192,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
 
 
 def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: str = "probabilities_vs_dt",
-                       sf: float = 1, param: str = "smoother", legend: list = None) -> None:
+                       sf: float = 1, param: Union[str, list] = "smoother", legend: list = None) -> None:
     """
     plot the loaded probabilities with respect to the time step and simulation
 
@@ -225,12 +232,15 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
                     ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j], label=label[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
-                    # ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                    if counter == 0 and j == 0:
+                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                    else:
+                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
                 else:
                     ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
-                    # ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+                    ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
 
                 ax[counter].set_xlim(0, xmax)
                 ax[counter].set_yscale("log")
@@ -242,7 +252,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
-    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=4)
     fig.subplots_adjust(top=0.94)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
@@ -252,20 +262,20 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
+    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
     # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
     #          "nonBlockingGaussSeidel_local", "GaussSeidel_local"]
-    cases = ["policy_default_smoother_only", "trained_policy_b5_fixed_dt_issue",
-             "trained_policy_b10_fixed_dt_issue", "trained_policy_b20_fixed_dt_issue"]
+    cases = ["default_settings_no_policy", "default_interpolateCorrection_only_with_policy",
+             "default_smoother_only_with_policy", "trained_policy_b5", "trained_policy_b10"]
 
     # xticks for the plots
     # xticks = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
     #           "$GaussSeidel$"]
-    xticks = ["$DICGaussSeidel$\n$(policy)$", "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$",
-              "$final$ $policy$\n$(b = 20)$"]
+    xticks = ["$default$\n$(no$ $policy)$", "$DICGaussSeidel$\n$(policy)$", "$interpolateCorrection = no$\n$(policy)$",
+              "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -298,8 +308,9 @@ if __name__ == "__main__":
                                      save_name="mean_n_dt")
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
-    plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks)
-                       # param="$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$")
+    plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
+                       param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
+                              "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
@@ -329,7 +340,11 @@ if __name__ == "__main__":
 
     ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
-    fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=3)
+
+    # replace all new lines in the legend with spaces if present, because otherwise the legend is too big
+    xticks = [i.replace("\n", " ") for i in xticks]
+
+    fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=2)
     fig.subplots_adjust(top=0.86)
     if scale:
         plt.savefig(join(save_path, "execution_times_vs_dt.png"), dpi=340)

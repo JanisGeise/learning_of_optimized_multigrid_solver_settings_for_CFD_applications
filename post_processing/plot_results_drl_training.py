@@ -19,7 +19,7 @@ def load_rewards(load_dir: str) -> dict:
     """
     files = sorted(glob(join(load_dir, "observations_*.pt")), key=lambda x: int(x.split("_")[-1].split(".")[0]))
     obs = [pt.load(join(f)) for f in files]
-    params = ["rewards", "actions", "t_per_dt"]
+    params = ["rewards"]
     obs_out = {}
 
     # add keys for mean and std. deviation to dict
@@ -113,15 +113,14 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "smoother", "results_weirOverflow")
+    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e100_r5_b5_f70_cluster_fixed_dt_issue", "e100_r5_b10_f70_cluster_fixed_dt_issue",
-             "e100_r5_b20_f70_cluster_fixed_dt_issue"]
+    cases = ["e100_r5_b5_f0.6_cluster_1st_test_combined", "e100_r10_b10_f0.6_cluster_1st_test_combined"]
 
     # legend entries for the plots
-    legend = ["$b = 5$", "$b = 10$", "$b = 20$"]
+    legend = ["$b = 5$", "$b = 10$"]
 
     # create directory for plots
     if not path.exists(save_path):
