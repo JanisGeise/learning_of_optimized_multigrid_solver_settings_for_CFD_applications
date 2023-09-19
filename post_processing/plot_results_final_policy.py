@@ -16,6 +16,8 @@ from os.path import join
 from os import path, makedirs
 from pandas import read_csv, DataFrame
 
+from post_processing.get_residuals_from_log import get_GAMG_residuals, map_keys_to_labels
+
 
 def load_cpu_times(case_path: str) -> DataFrame:
     """
@@ -27,6 +29,30 @@ def load_cpu_times(case_path: str) -> DataFrame:
     """
     times = read_csv(case_path, sep="\t", comment="#", header=None, names=["t", "t_exec", "t_per_dt"], usecols=[0, 1, 3])
     return times
+
+
+def load_residuals(case_path: str) -> DataFrame:
+    """
+    load the properties of the residuals used as policy input wrt time step written out by the 'agentSolverSettings'
+    function object throughout the simulation
+
+    :param case_path: path to the directory where the results of the simulation are located
+    :return: the properties of the residuals wrt time steps
+    """
+    # same names as in 'get_residuals_from_log.py', so we can use the 'map_keys_to_label' function later for plotting,
+    # also these keys will be returned if we filter the log file when we didn't use a policy
+    names = ["time", "init_residual", "median_convergence_rate", "max_convergence_rate", "min_convergence_rate",
+             "sum_gamg_iter", "max_gamg_iter", "n_solver_iter"]
+    res = read_csv(case_path, sep="\t", comment="#", header=None, names=names, usecols=[0, 2, 3, 4, 5, 6, 7, 8])
+
+    # in case we didn't use a policy (e.g. for the default simulations used for comparison) we need to compute the
+    # properties of the residuals based on solver's log file since there is no 'agentSolverSettings' function object
+    if res.empty:
+        res = pd.DataFrame.from_dict(get_GAMG_residuals(case_path.split("postProcessing")[0]))
+
+        # drop the information we haven't available when using the policy
+        res.drop([i for i in res.keys() if i not in names], inplace=True, axis=1)
+    return res
 
 
 def load_trajectory(load_dir: str) -> pt.Tensor or None:
@@ -260,6 +286,55 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     plt.close("all")
 
 
+def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
+    # all runs have the same residuals since we used the same policy, seed, starting settings etc., so just take
+    # randomly the one available and load the residuals for each case
+    file_dir = join("postProcessing", "residuals", "0", "agentSolverSettings.dat")
+    residuals = [load_residuals(join(glob(join(load_dir, s, "*"))[0], file_dir)) for s in simulations]
+
+    # take 6 of the 7 features and plot them ('n_pimple_iter' not changing wrt solver settings, so no need to plot it)
+    # use default color cycle
+    color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+
+    # in case no legend is given, use empty strings
+    legend = len(residuals) * [""] if legend is None else legend
+
+    # we want to plot everything but the numerical time and N pimple iter as parameter for the y-axis
+    keys = [k for k in residuals[0].keys() if k != "time" and k != "n_solver_iter"]
+
+    plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsmath}"})
+
+    counter = 0
+    xmax = round(max([dt["time"].tail(1).item() for i, dt in enumerate(residuals)]) / sf, 0)
+
+    fig, ax = plt.subplots(ncols=2, nrows=3, figsize=(7, 8), sharex="all")
+    for row in range(3):
+        for col in range(2):
+            for r in range(len(residuals)):
+                if col == 0 and row == 0:
+                    ax[row][col].plot(residuals[r]["time"] / sf, residuals[r][keys[counter]],
+                                      label=legend[r], color=color[r])
+                else:
+                    ax[row][col].plot(residuals[r]["time"] / sf, residuals[r][keys[counter]], color=color[r])
+
+            ax[row][col].set_ylabel(map_keys_to_labels(keys[counter]))
+            ax[row][col].set_xlim(0, xmax)
+            ax[-1][col].set_xlabel(r"$t \, / \, T$", fontsize=13)
+
+            if keys[counter] != "max_gamg_iter" and keys[counter] != "min_convergence_rate":
+                ax[row][col].set_yscale("log")
+
+            counter += 1
+
+    fig.tight_layout()
+    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
+    fig.subplots_adjust(top=0.92)
+    plt.savefig(join(save_dir, f"comparison_residuals.png"), dpi=340)
+    plt.show(block=False)
+    plt.pause(2)
+    plt.close("all")
+
+
 if __name__ == "__main__":
     # main path to all the cases and save path
     load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_weirOverflow")
@@ -268,14 +343,14 @@ if __name__ == "__main__":
     # names of top-level directory containing the simulations run with different settings
     # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
     #          "nonBlockingGaussSeidel_local", "GaussSeidel_local"]
-    cases = ["default_settings_no_policy", "default_interpolateCorrection_only_with_policy",
-             "default_smoother_only_with_policy", "trained_policy_b5", "trained_policy_b10"]
+    cases = ["default_settings_no_policy", "default_smoother_only_with_policy",
+             "trained_policy_b5_r1=100_no_log", "trained_policy_b10_r1=100_no_log", "trained_policy_b20_r1=100_no_log"]
 
     # xticks for the plots
     # xticks = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
     #           "$GaussSeidel$"]
-    xticks = ["$default$\n$(no$ $policy)$", "$DICGaussSeidel$\n$(policy)$", "$interpolateCorrection = no$\n$(policy)$",
-              "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$"]
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$DICGaussSeidel$\n$(policy)$",
+              "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$", "$final$ $policy$\n$(b = 20)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -298,6 +373,10 @@ if __name__ == "__main__":
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
 
     results = get_mean_and_std_exec_time(load_path, cases)
+
+    # plot the properties of the residuals wrt time step and case,replace all new lines in the legend with spaces if
+    # present, because otherwise the legend is too big
+    compare_residuals(load_path, cases, save_dir=save_path, sf=factor, legend=[i.replace("\n", " ") for i in xticks])
 
     # plot the avg. execution times and the corresponding std. deviation
     plot_avg_exec_times_final_policy(results, save_dir=save_path, scale_wrt_default=scale, default=default_idx)
@@ -345,7 +424,7 @@ if __name__ == "__main__":
     xticks = [i.replace("\n", " ") for i in xticks]
 
     fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.86)
+    fig.subplots_adjust(top=0.87)
     if scale:
         plt.savefig(join(save_path, "execution_times_vs_dt.png"), dpi=340)
     else:
