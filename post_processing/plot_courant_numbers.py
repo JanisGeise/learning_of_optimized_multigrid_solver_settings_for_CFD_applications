@@ -53,6 +53,7 @@ def get_cfl_number(load_path: str) -> dict:
 
     # convert time to tensor, so it can be non-dimensionalized easier
     data["t"] = tensor(data["t"])
+    data["dt"] = tensor(data["dt"]) if data["dt"] else None
 
     return data
 
@@ -72,17 +73,16 @@ def get_finish_time(load_path: str) -> float:
 
 if __name__ == "__main__":
     # path to the top-level directory containing all simulations
-    main_load_path = join(r"..", "run", "parameter_study", "influence_n_subdomains")
+    main_load_path = join(r"..", "run", "drl", "smoother", "results_weirOverflow")
 
     # the names of the directories of the simulations
-    cases = ["mixerVesselAMI_20subdomains_scotch", "mixerVesselAMI_40subdomains_scotch",
-             "mixerVesselAMI_80subdomains_scotch"]
+    cases = ["DICGaussSeidel_local/run_1/", "DICGaussSeidel_local_2nd/run_1/", "policy_default_smoother_only/run_1/"]
 
     # name of the top-level directory where the plots should be saved
-    save_path = join(main_load_path, "plots", "mixerVesselAMI")
+    save_path = join(main_load_path, "plots", "comparsion_default_vs_policy_default_only")
 
     # legend entries for the plot
-    legend = ["$20$ $subdomains$, $1$ $node$", "$40$ $subdomains$, $2$ $nodes$", "$80$ $subdomains$, $4$ $nodes$"]
+    legend = ["$DICGaussSeidel$", "$DICGaussSeidel$ $(2^{nd})$", "$DICGaussSeidel$ $(policy)$"]
 
     # make directory for plots
     if not path.exists(join(save_path)):
@@ -94,28 +94,32 @@ if __name__ == "__main__":
     # factor for making the time dimensionless; here the period of the dominant vortex shedding frequency (T = 1 / f)
     # is used. For the surfaceMountedCube, the frequency of f = 0.15 Hz is taken from:
     # https://github.com/AndreWeiner/ofw2022_dmd_training/blob/main/dmd_flowtorch.ipynb
-    if cases[0].startswith("surfaceMountedCube"):
-        factor = 1 / 0.15
-    elif cases[0].startswith("mixerVesselAMI"):
-        factor = 1 / 1.6364
-    else:
-        factor = 1
+    # factor = 1 / 0.15
+
+    # for mixerVesselAMI
+    # factor = 1 / 1.6364
+
+    # for weirOverflow
+    factor = 1 / 0.4251
+
+    # for cylinder2D (approx. of vortex shedding frequency @ Re = 1000)
+    # factor = 1 / 20
 
     results = [get_cfl_number(join(main_load_path, c)) for c in cases]
 
     # plot time steps vs. Courant number, if dt was determined based on Courant number
-    if results[0]["dt"]:
+    if results[0]["dt"] is not None:
         # get the finish time of the simulations for non-dimensionalizing the y-axis
         t_end = [get_finish_time(join(main_load_path, c)) for c in cases]
 
         fig, ax = plt.subplots(figsize=(6, 3))
         for i in range(len(results)):
-            ax.plot((results[i]["t"] / t_end[i]) / factor, results[i]["dt"], label=legend[i])
+            ax.plot(results[i]["t"] / factor, results[i]["dt"] / t_end[i], label=legend[i])
         ax.set_xlabel(r"$t \, / \, T$")
         ax.set_ylabel(r"$\Delta t \, / \, t_{end}$")
         ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
         fig.tight_layout()
-        plt.legend(loc="lower left", framealpha=1.0, ncol=1)
+        plt.legend(loc="upper right", framealpha=1.0, ncol=1)
         plt.savefig(join(save_path, f"dt_vs_t.png"), dpi=340)
         plt.show(block=False)
         plt.pause(2)
@@ -157,10 +161,10 @@ if __name__ == "__main__":
 
     fig.tight_layout()
     if results[0]["cfl_interface_mean"]:
-        fig.subplots_adjust(bottom=0.18)
+        fig.subplots_adjust(bottom=0.14)
     else:
         fig.subplots_adjust(top=0.82)
-    fig.legend(legend[:len(results)], loc=loc, framealpha=1.0, ncol=2)
+    fig.legend(legend[:len(results)], loc=loc, framealpha=1.0, ncol=3)
     plt.savefig(join(save_path, f"cfl_vs_t.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
