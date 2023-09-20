@@ -245,6 +245,8 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     counter, set_legend = 0, False
     xmax = round(max([dt.tail(1).item() for i, dt in enumerate(time_steps) if probs[i] is not None]) / sf, 0)
 
+    plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
+
     fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
 
     for i, p in enumerate(probs):
@@ -279,7 +281,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=4)
-    fig.subplots_adjust(top=0.94)
+    fig.subplots_adjust(top=0.96)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -370,7 +372,6 @@ if __name__ == "__main__":
 
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
-    plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
 
     results = get_mean_and_std_exec_time(load_path, cases)
 
