@@ -150,6 +150,7 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsmath} \usepackage{amsfonts}"})
 
     fig, ax = plt.subplots(figsize=(6, 4))
+    fig.set_facecolor("white")
 
     # radius of neurons
     r = 0.02
@@ -159,10 +160,9 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
            "$\mathbb{P}(DIC)$", "$\mathbb{P}(FDIC)$"]
 
     # names of labels for policy input
-    # {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_, maxAbsConRate_, minAbsConRate_};
     names = [r"$N_{iter, \, solver}$", r"$N_{GAMG, \, max}$", r"$\sum{N_{GAMG}}$",
-             "$|log(\Delta \\boldsymbol{R}_{median})|$", "$|log(\\boldsymbol{R}_0)|$",
-             "$|log(\Delta \\boldsymbol{R}_{max})|$", "$|log(\Delta \\boldsymbol{R}_{min})|$"]
+             "$|log(|\Delta \\boldsymbol{R}_{median}|)|$", "$|log(\\boldsymbol{R}_0)|$",
+             "$|log(|\Delta \\boldsymbol{R}_{max}|)|$", "$|log(|\Delta \\boldsymbol{R}_{min}|)|$"]
 
     # add neurons of input layer
     rectangle = Rectangle((-2 * r, -r), width=4*r, height=1+2*r, edgecolor="grey", facecolor="grey", alpha=0.4)
@@ -175,7 +175,7 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
 
         # add label for each input parameter
         ax.arrow(-7 * r, pos[-n], 3*r, 0, color="green", head_width=0.02, clip_on=False, overhang=0.3)
-        ax.annotate(names[n], (-32 * r, pos[-n]), annotation_clip=False, color="green")
+        ax.annotate(names[n], (-35 * r, pos[-n]), annotation_clip=False, color="green")
 
     # add rectangles for the two hidden layers
     rectangle = Rectangle((-r + 0.4, -r - 0.2), width=4*r, height=1.4+2*r, edgecolor="grey", facecolor="grey", alpha=0.4)
