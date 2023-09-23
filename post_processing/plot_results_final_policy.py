@@ -152,7 +152,7 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
 
 def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_exec"], save_dir: str = "",
                                      default: int = None, save_name: str = "mean_execution_times", ylabel: str = None,
-                                     scale_wrt_default: bool = True) -> None:
+                                     scale_wrt_default: bool = True, xlabels: list = None) -> None:
     """
     create an errorbar plot for the execution times (or other quantities). If the std. deviation of a case is zero,
     then the case is plotted as scatter plot. If 'scale_wrt_default' is set to 'True', but no index of the default
@@ -166,6 +166,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     :param save_name: name of the plot
     :param ylabel: y-label for the y-axis
     :param scale_wrt_default: flag if all y-values should be scaled wrt a default case / setting
+    :param xlabels: list containing the labels for the x-axis
     :return: None
     """
 
@@ -176,8 +177,8 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     else:
         pass
 
-    if default is None:
-        scale_wrt_default = False
+    scale_wrt_default = False if default is None else scale
+    xlabels = [f"case #{i}" for i in range(len(data[keys[0]]))] if xlabels is None else xlabels
 
     # use default color cycle
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
@@ -188,9 +189,9 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
         if scale_wrt_default:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
             if r[1] == 0:
-                ax.scatter(xticks[i], r[0] / data[keys[0]][default], marker="o", alpha=1, color=color[i])
+                ax.scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", alpha=1, color=color[i])
             else:
-                ax.errorbar(xticks[i], r[0] / data[keys[0]][default], yerr=r[1] / data[keys[1]][default],
+                ax.errorbar(xlabels[i], r[0] / data[keys[0]][default], yerr=r[1] / data[keys[1]][default],
                             barsabove=True, fmt="o", capsize=5, color=color[i])
             ax.set_ylabel(ylabel, fontsize=13)
 
@@ -198,9 +199,9 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
         else:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
             if r[1] == 0:
-                ax.scatter(xticks[i], r[0], marker="o", alpha=1, color=color[i], facecolors=color[i])
+                ax.scatter(xlabels[i], r[0], marker="o", alpha=1, color=color[i], facecolors=color[i])
             else:
-                ax.errorbar(xticks[i], r[0], yerr=r[1], barsabove=True, fmt="o", capsize=5, color=color[i])
+                ax.errorbar(xlabels[i], r[0], yerr=r[1], barsabove=True, fmt="o", capsize=5, color=color[i])
             ax.set_ylabel(ylabel, fontsize=13)
     fig.tight_layout()
     ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
