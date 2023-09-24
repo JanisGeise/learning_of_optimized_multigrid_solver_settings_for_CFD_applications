@@ -137,7 +137,6 @@ void Foam::functionObjects::agentSolverSettings::computeResidualProperties(const
     pimple_iter_ = sp.size();
 
     // convergence rate has one element less since we are computing the difference between two subsequent iterations
-    // TODO: check if we always have only one GAMG call per pimple iter, otherwise we can't compute the convergence rate correctly
     convergenceRate_ = torch::zeros(pimple_iter_ - 1, torch::TensorOptions().dtype(torch::kFloat64));
 
     // loop over the residuals of each GAMG call and compute the quantities of interest
@@ -227,16 +226,15 @@ bool Foam::functionObjects::agentSolverSettings::execute()
 {
     // we always have only the pressure field, which we want to use for our policy input, to first check if there is a
     // field available and that exactly one field is specified. Otherwise, the agent wouldn't have a policy input and crash
-    // TODO: maybe better to additionally exit here
     if (fieldSet_.size() < 1)
     {
-        Info << "[agentSolverSettings]: No fields given! Make sure to specify the residual field for pressure in the"
-             << " controlDict. \n" << endl;
+        FatalErrorInFunction << "[agentSolverSettings]: No fields given! Make sure to specify the residual field for "
+                                "pressure in the controlDict. \n" << exit(FatalError);
     }
     else if (fieldSet_.size() > 1)
     {
-        Info << "[agentSolverSettings]: Found more than one field! Make sure to only specify one pressure field in the"
-             << " controlDict. \n" << endl;
+        FatalErrorInFunction << "[agentSolverSettings]: Found more than one field! Make sure to only specify one "
+                                "pressure field in the controlDict. \n" << exit(FatalError);
     }
 
     // get the field name, e.g. 'p' or 'p_rgh'; there should be only one field available
@@ -247,8 +245,18 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     const bool fieldExists = fvMeshFunctionObject::mesh_.foundObject<volScalarField>(fieldName);
     if (!fieldExists)
     {
-        Info << "[agentSolverSettings]: specified field is either not a scalar field or doesn't exist! Make sure that"
-             << "  the specified field is the correct scalar field for pressure \n" << endl;
+        FatalErrorInFunction << "[agentSolverSettings]: specified field is either not a scalar field or doesn't exist!"
+                                " Make sure that the specified field is the correct scalar field for pressure \n"
+                             << exit(FatalError);
+    }
+
+    // for now check if we always have only one GAMG call per PIMPLE iter, otherwise we can't compute the convergence
+    // rate correctly (once the modification of fvSolution via IOobject works, we can reset all problematic parameters
+    // of PIMPLE to values we can deal with, except for the 1st time step)
+    if (mesh_.lookupObject<IOdictionary>("fvSolution").subDict("PIMPLE").get<int>("nNonOrthogonalCorrectors") > 0)
+    {
+        FatalErrorInFunction << "[agentSolverSettings]: 'nNonOrthogonalCorrectors' in PIMPLE dict needs to be set to"
+                                " zero! \n" << exit(FatalError);
     }
 
     // print some information to log file
@@ -389,12 +397,12 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // all available smoother for symmetric matrices (incompressible flow)
         std::vector<word> smoother = {"FDIC", "DIC", "DICGaussSeidel", "symGaussSeidel", "nonBlockingGaussSeidel",
                                       "GaussSeidel"};
-
+        /*
         // print the new settings to log file
         Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
              << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
              << "'smoother'              = " << smoother[action_[1]] << "\n\n" << endl;
-
+        */
         /* taken from Tomislav Maric (line 135, 136):
         // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
         const fvSolution& fvSolutionDict (fvMeshFunctionObject::mesh_);
@@ -445,9 +453,17 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         const word& solverSettings = "\t{\n"
                                              "\t\tsolver \tGAMG;\n"
                                              "\t\tsmoother \t" + smoother[action_[1]] + ";\n"
+                                             // "\t\tsmoother \tDICGaussSeidel;\n"
                                              "\t\ttolerance \t1e-06;\n"
                                              "\t\trelTol \t0.01;\n"
                                              "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
+                                             // "\t\tinterpolateCorrection \tno;\n"
+                                             /*
+                                             "\t\tcoarsestLevelCorr\n\t\t\t{\n"
+                                             "\t\t\t\tsolver          smoothSolver;\n"
+                                             "\t\t\t\tsmoother  DICGaussSeidel;\n"
+                                             "\t\t\t\trelTol          0.05;\n";
+                                             */
                                      "\t}\n";
 
         // update the fvSolution file
