@@ -32,16 +32,22 @@ def compute_auto_correlations(data: List[dict], key_list: list) -> list:
 
 if __name__ == "__main__":
     # main path to all the cases
-    load_path = join(r"..", "run", "drl", "interpolateCorrection", "results_weirOverflow")
+    load_path = join(r"..", "run", "drl", "smoother", "results_weirOverflow")
 
     # list with the cases
     cases = ["FDIC_local/run_1", "DIC_local/run_1", "DICGaussSeidel_local/run_1", "symGaussSeidel_local/run_1",
              "nonBlockingGaussSeidel_local/run_1", "GaussSeidel_local/run_1"]
-    cases = ["no_local/run_1", "yes_local/run_1"]
+    # cases = ["no_local/run_1", "yes_local/run_1"]
 
     # legend entries for the plot
-    # legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
-    legend = ["$no$", "$yes$"]
+    legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    # legend = ["$no$", "$yes$"]
+
+    # position of the legend (in which subplot)
+    pos_legend = [1, 0]
+
+    # portrait or landscape (wide = true)
+    wide = True
 
     # save path for the plots
     save_path = join(load_path, "plots")
@@ -84,11 +90,15 @@ if __name__ == "__main__":
 
     # plot auto correlation for the specified keys
     counter = 0
-    fig, ax = plt.subplots(ncols=2, nrows=int(len(auto_corr) / 2), figsize=(6, 10), sharex="all", sharey="all")
-    for row in range(int(len(auto_corr) / 2)):
-        for col in range(2):
+    n_rows = 2 if wide else int(len(auto_corr) / 2)
+    n_cols = int(len(auto_corr) / 2) if wide else 2
+    figsize = (10, 6) if wide else (6, 10)
+
+    fig, ax = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, sharex="all", sharey="all")
+    for row in range(n_rows):
+        for col in range(n_cols):
             for c in range(len(cases)):
-                if col == 0 and row == 0:
+                if [row, col] == pos_legend:
                     ax[row][col].plot(range(len(auto_corr[counter][c])), auto_corr[counter][c], marker="x",
                                       label=legend[c])
                 else:
@@ -97,12 +107,16 @@ if __name__ == "__main__":
             counter += 1
         ax[row][0].set_ylabel(r"$R_{ii}$", fontsize=13)
 
-    ax[-1][0].set_xlabel("$time$ $delay$", fontsize=13)
-    ax[-1][1].set_xlabel("$time$ $delay$", fontsize=13)
+    for i in range(n_cols):
+        ax[-1][i].set_xlabel("$time$ $delay$", fontsize=13)
+
     fig.tight_layout()
-    ax[0][0].legend(loc="upper right", framealpha=1.0, ncol=1)
+    ax[pos_legend[0]][pos_legend[1]].legend(loc="lower left", framealpha=1.0, ncol=1)
     fig.subplots_adjust(hspace=0.2)
-    plt.savefig(join(save_path, f"auto_correlations_residuals.png"), dpi=340)
+    if wide:
+        plt.savefig(join(save_path, f"auto_correlations_residuals_wide.png"), dpi=340)
+    else:
+        plt.savefig(join(save_path, f"auto_correlations_residuals.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")

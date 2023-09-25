@@ -397,12 +397,12 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // all available smoother for symmetric matrices (incompressible flow)
         std::vector<word> smoother = {"FDIC", "DIC", "DICGaussSeidel", "symGaussSeidel", "nonBlockingGaussSeidel",
                                       "GaussSeidel"};
-        /*
+
         // print the new settings to log file
         Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
              << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
              << "'smoother'              = " << smoother[action_[1]] << "\n\n" << endl;
-        */
+
         /* taken from Tomislav Maric (line 135, 136):
         // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
         const fvSolution& fvSolutionDict (fvMeshFunctionObject::mesh_);
