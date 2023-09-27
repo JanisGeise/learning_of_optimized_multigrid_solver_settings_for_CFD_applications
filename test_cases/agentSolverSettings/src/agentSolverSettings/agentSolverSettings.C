@@ -73,8 +73,9 @@ void Foam::functionObjects::agentSolverSettings::writeFileHeader(Ostream& os, co
     writeTabbed(os, fieldBase + "_rate_median");
     writeTabbed(os, fieldBase + "_rate_max");
     writeTabbed(os, fieldBase + "_rate_min");
-    writeTabbed(os, fieldBase + "_sum_iters");
-    writeTabbed(os, fieldBase + "_max_iters");
+    // writeTabbed(os, fieldBase + "_sum_iters");
+    // writeTabbed(os, fieldBase + "_max_iters");
+    writeTabbed(os, fieldBase + "_ratio_iter");
     writeTabbed(os, fieldBase + "_pimple_iters");
 
     os << endl;
@@ -93,8 +94,9 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
         << token::TAB << avgAbsConRate_
         << token::TAB << maxAbsConRate_
         << token::TAB << minAbsConRate_
-        << token::TAB << sumSolverIter_
-        << token::TAB << maxSolverIter_
+        // << token::TAB << sumSolverIter_
+        // << token::TAB << maxSolverIter_
+        << token::TAB << ratio_iter_
         << token::TAB << pimple_iter_;
 
     const word resultName(fieldName);
@@ -102,8 +104,9 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
     setResult(resultName + "rate_median", avgAbsConRate_);
     setResult(resultName + "rate_max", maxAbsConRate_);
     setResult(resultName + "rate_min", minAbsConRate_);
-    setResult(resultName + "_sum_iters", sumSolverIter_);
-    setResult(resultName + "_max_iters", maxSolverIter_);
+    // setResult(resultName + "_sum_iters", sumSolverIter_);
+    // setResult(resultName + "_max_iters", maxSolverIter_);
+    setResult(resultName + "_ratio_iter", ratio_iter_);
     setResult(resultName + "_pimple_iters", pimple_iter_);
 
     file() << endl;
@@ -171,6 +174,9 @@ void Foam::functionObjects::agentSolverSettings::computeResidualProperties(const
 
     // compute the median convergence rate (correlation coefficient for median rate is higher than for avg. rate)
     avgAbsConRate_ = torch::median(convergenceRate_).abs().item<double>();
+
+    // compute a ratio between sum GAMG iter and max GAMG iter -> measure for homogeneity of distribution of GAMG iter
+    ratio_iter_ = (sumSolverIter_ - maxSolverIter_) / (sumSolverIter_ + maxSolverIter_);
 }
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -309,11 +315,10 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
     {
         // convert all ints to doubles since the feature vector will contain doubles
         double pimple_iter = pimple_iter_;
-        double maxSolverIter = maxSolverIter_;
-        double sumSolverIter = sumSolverIter_;
 
         // create feature vector, therefore we need to convert everything to double
-        std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_,
+        // std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_,
+        std::vector<double> ft = {pimple_iter, ratio_iter_, avgAbsConRate_, initialResidual_,
                                   maxAbsConRate_, minAbsConRate_};
 
         const int nFeatures = ft.size();
@@ -322,15 +327,24 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         torch::Tensor features = torch::zeros({1, nFeatures}).to(torch::kFloat64);
         for (label i = 0; i < nFeatures; i++)
         {
-            if (i < 3)
+            if (i < 2)
             {
                 features[0][i] = ft[i];
             }
-            // convert the convergence rates to log, because they are a few orders smaller tha N_iter etc.
+            // convert the convergence rates to log, because they are a few orders smaller than N_iter etc.
+            // log is ok, because we're taking the abs() when computing these quantities and they are always << 1
             else
             {
                 features[0][i] = std::abs(std::log(ft[i]));
             }
+        }
+
+        // in case t = 0 -> R_0 = 1 -> log(1) = 0, so in order to avoid issues with that add a small value
+        // (value << convergence tolerance, since we're taking the log, the other values are usually in the order of 1...4)
+        // turned out this dosen't make a difference wrt stability, but it makes things not worse, so for now keep it...
+        if ((features[0][3] - 0.0).item<double>() < 1e-12)
+        {
+            features[0][3] += 1e-6;
         }
 
         // make prediction

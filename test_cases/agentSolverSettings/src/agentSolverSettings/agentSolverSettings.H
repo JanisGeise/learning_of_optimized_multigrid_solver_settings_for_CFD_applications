@@ -137,8 +137,9 @@ protected:
 
         // initialize the variables for storing the properties of the residuals
         int pimple_iter_ = 0;
-        int maxSolverIter_ = 0;
-        int sumSolverIter_ = 0;
+        double maxSolverIter_ = 0;
+        double sumSolverIter_ = 0;
+        double ratio_iter_ = 0.0;
         scalar avgAbsConRate_ = 0.0;
         scalar initialResidual_ = 0.0;
         scalar maxAbsConRate_ = 0.0;
