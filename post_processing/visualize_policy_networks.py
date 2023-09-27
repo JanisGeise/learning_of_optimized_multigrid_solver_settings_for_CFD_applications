@@ -133,17 +133,16 @@ def render_policies_torchviz(save_dir: str) -> None:
     dot.render("policy_interpolateCorrection_and_smoother", save_dir, format="png", cleanup=True)
 
 
-def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
+def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_name=None) -> None:
     """
     plot a qualitative network architecture of the policy visualizing input & output quantities
 
     :param save_dir: path to the directory where the plots should be saved to
     :param n_inputs: number of input neurons (number of features), is const. for all policies
     :param n_outputs: number of output neurons
+    :param save_name: name of the plot
     :return: None
     """
-    # dummy save name
-    save_name = "policy_network"
 
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
@@ -160,22 +159,34 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
            "$\mathbb{P}(DIC)$", "$\mathbb{P}(FDIC)$"]
 
     # names of labels for policy input
-    names = [r"$N_{iter, \, solver}$", r"$N_{GAMG, \, max}$", r"$\sum{N_{GAMG}}$",
-             "$|log(|\Delta \\boldsymbol{R}_{median}|)|$", "$|log(\\boldsymbol{R}_0)|$",
-             "$|log(|\Delta \\boldsymbol{R}_{max}|)|$", "$|log(|\Delta \\boldsymbol{R}_{min}|)|$"]
+    if n_inputs == 6:
+        names = [r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$",
+                 r"$\frac{\sum{N_{GAMG}-N_{GAMG, \, max}}}{\sum{N_{GAMG} + N_{GAMG, \, max}}}$",
+                 "$|ln(|\Delta \\boldsymbol{R}_{median}|)|$", "$|ln(\\boldsymbol{R}_0)|$",
+                 "$|ln(|\Delta \\boldsymbol{R}_{max}|)|$", "$|ln(|\Delta \\boldsymbol{R}_{min}|)|$"]
+    else:
+        names = [r"$N_{PIMPLE}$", r"$N_{GAMG, \, max}$", r"$\sum{N_{GAMG}}$",
+                 "$|ln(|\Delta \\boldsymbol{R}_{median}|)|$", "$|ln(\\boldsymbol{R}_0)|$",
+                 "$|ln(|\Delta \\boldsymbol{R}_{max}|)|$", "$|ln(|\Delta \\boldsymbol{R}_{min}|)|$"]
 
     # add neurons of input layer
     rectangle = Rectangle((-2 * r, -r), width=4*r, height=1+2*r, edgecolor="grey", facecolor="grey", alpha=0.4)
     ax.add_patch(rectangle)
-    ax.annotate("$input$\n$layer$\n$(1 \\times 7)$", (r, -0.48), annotation_clip=False, color="black", ha="center")
-    pos = pt.linspace(r, 1-r, n_inputs)
-    for n in range(n_inputs):
-        circle = Circle((0, pos[n]), radius=r, color="green", zorder=10)
+    ax.annotate(f"$input$\n$layer$\n$(1 \\times {n_inputs})$", (r, -0.48), annotation_clip=False, color="black",
+                ha="center")
+    pos_in = pt.linspace(r, 1-r, n_inputs)
+    pos_out = pt.linspace(r, 1-r, n_outputs)
+    for n in range(1, n_inputs+1):
+        circle = Circle((0, pos_in[n-1]), radius=r, color="green", zorder=10)
         ax.add_patch(circle)
 
         # add label for each input parameter
-        ax.arrow(-7 * r, pos[-n], 3*r, 0, color="green", head_width=0.02, clip_on=False, overhang=0.3)
-        ax.annotate(names[n], (-35 * r, pos[-n]), annotation_clip=False, color="green")
+        ax.arrow(-7 * r, pos_in[-n], 3*r, 0, color="green", head_width=0.02, clip_on=False, overhang=0.3)
+
+        if n_inputs == 6 and names[n-1].startswith(r"$\frac{\sum{N_{GAMG}"):
+            ax.annotate(names[n - 1], (-42 * r, pos_in[-n]), annotation_clip=False, color="green")
+        else:
+            ax.annotate(names[n-1], (-35 * r, pos_in[-n]), annotation_clip=False, color="green")
 
     # add rectangles for the two hidden layers
     rectangle = Rectangle((-r + 0.4, -r - 0.2), width=4*r, height=1.4+2*r, edgecolor="grey", facecolor="grey", alpha=0.4)
@@ -200,7 +211,7 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
     ax.annotate("$.$\n$.$\n$.$", (0.8 + r/2, 0.5), annotation_clip=False, color="black", fontsize=20, va="center")
 
     # connect input layer with 1st hidden layer
-    y = [[(i, k) for k in pos_h] for i in pos]
+    y = [[(i, k) for k in pos_h] for i in pos_in]
     [[ax.plot((r, 0.4), k, color="grey", lw=0.5) for k in i] for i in y]
 
     # connect the two hidden layers
@@ -209,22 +220,22 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
 
     # output layer, n_outputs = 1 corresponds to 'interpolateCorrection'
     if n_outputs == 1:
-        rectangle = Rectangle((-r + 1.2, (pos[2] + pos[3]) / 2 + r), width=4*r, height=4*n_outputs*r, edgecolor="grey",
-                              facecolor="grey", alpha=0.4)
+        rectangle = Rectangle((-r + 1.2, pt.mean(pos_in) + r), width=4*r, height=4*n_outputs*r,
+                              edgecolor="grey", facecolor="grey", alpha=0.4)
         ax.add_patch(rectangle)
 
         # add the output neuron and some annotations
-        circle = Circle((1.2 + r, (pos[2] + pos[3]) / 2 + 3 * r), radius=r, color="red", zorder=10)
+        circle = Circle((1.2 + r, pt.mean(pos_in) + 3 * r), radius=r, color="red", zorder=10)
         ax.add_patch(circle)
 
-        ax.arrow(1.2 + 6 * r, (pos[2] + pos[3]) / 2 + 3 * r, 14 * r, 0, color="red", head_width=0.02, clip_on=False,
+        ax.arrow(1.2 + 6 * r, pt.mean(pos_in) + 3 * r, 14 * r, 0, color="red", head_width=0.02,  clip_on=False,
                  overhang=0.3)
-        ax.annotate("$sigmoid$", (1.2 + 6 * r, (pos[2] + pos[3]) / 2 + 5 * r), annotation_clip=False, color="red")
-        ax.annotate("$\mathbb{P} \in [0, 1]$", (1.2 + 24 * r, (pos[2] + pos[3]) / 2 + 2 * r), annotation_clip=False,
+        ax.annotate("$sigmoid$", (1.2 + 6 * r, pt.mean(pos_in) + 5 * r), annotation_clip=False, color="red")
+        ax.annotate("$\mathbb{P} \in [0, 1]$", (1.2 + 24 * r, pt.mean(pos_in) + 2 * r), annotation_clip=False,
                     color="red")
 
         # connect last hidden layer with output neuron
-        [ax.plot([0.8+2*r, 1.2], [i, (pos[2] + pos[3]) / 2 + 3 * r], color="grey", lw=0.5) for i in pos_h]
+        [ax.plot([0.8+2*r, 1.2], [i, pt.mean(pos_in) + 3 * r], color="grey", lw=0.5) for i in pos_h]
 
         # add small legend
         ax.annotate("$\\boldsymbol{R} \equiv Residual$", (0.3, 1.45), annotation_clip=False, color="green")
@@ -234,23 +245,23 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
 
     # n_outputs = 6 corresponds to 'smoother'
     elif n_outputs == 6:
-        rectangle = Rectangle((-r + 1.2, -r + abs((pos[0] - pos[1])) / 2), width=4*r,
-                              height=7 * r * n_outputs + abs((pos[0] - pos[1])) / 2 - 2 * r, edgecolor="grey",
-                              facecolor="grey", alpha=0.4)
+        h = 5 * r * n_outputs + pos_in.mean()
+        rectangle = Rectangle((-r + 1.2, pos_in.mean()-r-h/2), width=4*r, height=h, edgecolor="grey", facecolor="grey",
+                              alpha=0.4)
         ax.add_patch(rectangle)
 
         # draw the output neurons
         for n in range(n_outputs):
-            circle = Circle((1.2 + r, pos[n] + abs((pos[0] - pos[1])) / 2), radius=r, color="red", zorder=10)
+            circle = Circle((1.2 + r, pos_out[n] + pos_out.mean()-h/2), radius=r, color="red", zorder=10)
             ax.add_patch(circle)
 
         # connect last hidden layer with output layer
-        y = [[(i, k + abs((pos[0] - pos[1])) / 2) for k in pos[:-1]] for i in pos_h]
+        y = [[(i, k + pos_out.mean()-h/2) for k in pos_out] for i in pos_h]
         [[ax.plot((0.8+r, 1.2), k, color="grey", lw=0.5) for k in i] for i in y]
 
         # annotate the output neurons
-        [ax.annotate(msg[m], (1.2 + 4 * r, pos[m] + abs((pos[0] - pos[1])) / 2 - r), annotation_clip=False,
-                     color="red") for m in range(n_outputs)]
+        [ax.annotate(msg[m], (1.2 + 4 * r, pos_out[m] + pos_out.mean() - r - h/2), annotation_clip=False, color="red")
+         for m in range(n_outputs)]
 
         # add legend
         ax.annotate("$\\boldsymbol{R} \enspace \equiv Residual$", (0.3, 1.45), annotation_clip=False, color="green")
@@ -267,25 +278,25 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1) -> None:
 
         # draw the output neurons
         for n in range(n_outputs):
-            circle = Circle((1.2 + r, pos[n]), radius=r, color="red", zorder=10)
+            circle = Circle((1.2 + r, pos_out[n]), radius=r, color="red", zorder=10)
             ax.add_patch(circle)
 
         # connect last hidden layer with output layer
-        y = [[(i, k) for k in pos] for i in pos_h]
+        y = [[(i, k) for k in pos_out] for i in pos_h]
         [[ax.plot((0.8+r, 1.2), k, color="grey", lw=0.5) for k in i] for i in y]
 
         # drax the sigmoid annotation for the 1st output neuron
-        ax.annotate("$\mathbb{P} \in [0, 1]$", (1.2 + 4 * r, pos[-1] - r), annotation_clip=False, color="red")
+        ax.annotate("$\mathbb{P} \in [0, 1]$", (1.2 + 4 * r, pos_out[-1] - r), annotation_clip=False, color="red")
 
         # annotate the remaining output neurons
-        [ax.annotate(msg[m], (1.2 + 4 * r, pos[m]-r), annotation_clip=False, color="red") for m in range(len(pos[:-1]))]
+        [ax.annotate(msg[m], (1.2 + 4 * r, pos_out[m]-r), annotation_clip=False, color="red") for m in range(len(pos_out[:-1]))]
 
         # add legend
         ax.annotate("$\\boldsymbol{R} \enspace \equiv Residual$", (0.3, 1.45), annotation_clip=False, color="green")
         ax.annotate("$\mathbb{P} \enspace \; \equiv probability$\n$GS \equiv GaussSeidel$", (0.3, 1.3),
                     annotation_clip=False, color="red")
 
-        save_name = "policy_network_interpolateCorrection_and_smoother"
+        save_name = "policy_network_interpolateCorrection_and_smoother" if save_name is None else save_name
 
     ax.annotate("$output$\n$layer$\n$(1 \\times$" + f"${n_outputs}$" + "$)$", (1.2 + r, -0.48), annotation_clip=False,
                 color="black", ha="center")
@@ -317,3 +328,8 @@ if __name__ == "__main__":
 
     # for combination of 'interpolateCorrection' and 'smoother'
     plot_policies(save_path, n_outputs=7)
+
+    # for combination of 'interpolateCorrection' and 'smoother', new input features
+    plot_policies(save_path, n_inputs=6, n_outputs=7,
+                  save_name="policy_network_interpolateCorrection_and_smoother_new_features")
+

@@ -76,7 +76,7 @@ void Foam::functionObjects::agentSolverSettings::writeFileHeader(Ostream& os, co
     // writeTabbed(os, fieldBase + "_sum_iters");
     // writeTabbed(os, fieldBase + "_max_iters");
     writeTabbed(os, fieldBase + "_ratio_iter");
-    writeTabbed(os, fieldBase + "_pimple_iters");
+    writeTabbed(os, fieldBase + "_ratio_pimple_iters");
 
     os << endl;
 
@@ -107,7 +107,7 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
     // setResult(resultName + "_sum_iters", sumSolverIter_);
     // setResult(resultName + "_max_iters", maxSolverIter_);
     setResult(resultName + "_ratio_iter", ratio_iter_);
-    setResult(resultName + "_pimple_iters", pimple_iter_);
+    setResult(resultName + "_ratio_pimple_iters", pimple_iter_);
 
     file() << endl;
 
@@ -313,15 +313,25 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
     // this method is adopted from drlfoam, https://github.com/OFDataCommittee/drlfoam
     if (Pstream::master()) // evaluate policy only on the master
     {
-        // convert all ints to doubles since the feature vector will contain doubles
-        double pimple_iter = pimple_iter_;
+        // make N_pimple_iter relative to the max. allowed PIMPLE iterations
+        int limit_pimple_iter_ = mesh_.lookupObject<IOdictionary>("fvSolution").subDict("PIMPLE").get<int>("nOuterCorrectors");
+        pimple_iter_ /= limit_pimple_iter_;
 
         // create feature vector, therefore we need to convert everything to double
         // std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_,
-        std::vector<double> ft = {pimple_iter, ratio_iter_, avgAbsConRate_, initialResidual_,
+        std::vector<double> ft = {pimple_iter_, ratio_iter_, avgAbsConRate_, initialResidual_,
                                   maxAbsConRate_, minAbsConRate_};
 
         const int nFeatures = ft.size();
+
+        // in case PIMPLE does not converge within 50 iterations -> min. convergence rate is sometimes zero
+        // -> log(0) = crash. in order to avoid this, set min. convergence rate to very small value (normally, so far
+        // encountered min. values if PIMPLE not converging ~1e-8, so this should have much of an influence)
+        if (ft[5] == 0.0)
+        {
+            ft[5] += 1e-10;
+            minAbsConRate_ += 1e-10;
+        }
 
         // fill the feature tensor for policy input
         torch::Tensor features = torch::zeros({1, nFeatures}).to(torch::kFloat64);
@@ -337,14 +347,6 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
             {
                 features[0][i] = std::abs(std::log(ft[i]));
             }
-        }
-
-        // in case t = 0 -> R_0 = 1 -> log(1) = 0, so in order to avoid issues with that add a small value
-        // (value << convergence tolerance, since we're taking the log, the other values are usually in the order of 1...4)
-        // turned out this dosen't make a difference wrt stability, but it makes things not worse, so for now keep it...
-        if ((features[0][3] - 0.0).item<double>() < 1e-12)
-        {
-            features[0][3] += 1e-6;
         }
 
         // make prediction
