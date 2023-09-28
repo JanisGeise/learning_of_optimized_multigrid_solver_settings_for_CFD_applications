@@ -140,7 +140,7 @@ protected:
         double maxSolverIter_ = 0.0;
         double sumSolverIter_ = 0.0;
         double ratio_iter_ = 0.0;
-        scalar avgAbsConRate_ = 0.0;
+        scalar medianAbsConRate_ = 0.0;
         scalar initialResidual_ = 0.0;
         scalar maxAbsConRate_ = 0.0;
         scalar minAbsConRate_ = 42.0;

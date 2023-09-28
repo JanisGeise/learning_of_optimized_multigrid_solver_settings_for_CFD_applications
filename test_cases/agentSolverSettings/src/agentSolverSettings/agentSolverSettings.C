@@ -91,7 +91,7 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
     // for now only write these quantities to the file, later this will be additionally used as policy input
     file()
         << token::TAB << initialResidual_
-        << token::TAB << avgAbsConRate_
+        << token::TAB << medianAbsConRate_
         << token::TAB << maxAbsConRate_
         << token::TAB << minAbsConRate_
         // << token::TAB << sumSolverIter_
@@ -101,7 +101,7 @@ void Foam::functionObjects::agentSolverSettings::writeResidualsToFile(Ostream& o
 
     const word resultName(fieldName);
     setResult(resultName + "_initial", initialResidual_);
-    setResult(resultName + "rate_median", avgAbsConRate_);
+    setResult(resultName + "rate_median", medianAbsConRate_);
     setResult(resultName + "rate_max", maxAbsConRate_);
     setResult(resultName + "rate_min", minAbsConRate_);
     // setResult(resultName + "_sum_iters", sumSolverIter_);
@@ -173,7 +173,7 @@ void Foam::functionObjects::agentSolverSettings::computeResidualProperties(const
     }
 
     // compute the median convergence rate (correlation coefficient for median rate is higher than for avg. rate)
-    avgAbsConRate_ = torch::median(convergenceRate_).abs().item<double>();
+    medianAbsConRate_ = torch::median(convergenceRate_).abs().item<double>();
 
     // compute a ratio between sum GAMG iter and max GAMG iter -> measure for homogeneity of distribution of GAMG iter
     ratio_iter_ = (sumSolverIter_ - maxSolverIter_) / (sumSolverIter_ + maxSolverIter_);
@@ -318,36 +318,23 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         pimple_iter_ /= limit_pimple_iter_;
 
         // create feature vector, therefore we need to convert everything to double
-        // std::vector<double> ft = {pimple_iter, maxSolverIter, sumSolverIter, avgAbsConRate_, initialResidual_,
-        std::vector<double> ft = {pimple_iter_, ratio_iter_, avgAbsConRate_, initialResidual_,
-                                  maxAbsConRate_, minAbsConRate_};
+        std::vector<double> ft = {pimple_iter_, ratio_iter_, medianAbsConRate_, initialResidual_, maxAbsConRate_,
+                                  minAbsConRate_};
 
         const int nFeatures = ft.size();
-
-        // in case PIMPLE does not converge within 50 iterations -> min. convergence rate is sometimes zero
-        // -> log(0) = crash. in order to avoid this, set min. convergence rate to very small value (normally, so far
-        // encountered min. values if PIMPLE not converging ~1e-8, so this should have much of an influence)
-        if (ft[5] == 0.0)
-        {
-            ft[5] += 1e-10;
-            minAbsConRate_ += 1e-10;
-        }
 
         // fill the feature tensor for policy input
         torch::Tensor features = torch::zeros({1, nFeatures}).to(torch::kFloat64);
         for (label i = 0; i < nFeatures; i++)
         {
-            if (i < 2)
-            {
-                features[0][i] = ft[i];
-            }
-            // convert the convergence rates to log, because they are a few orders smaller than N_iter etc.
-            // log is ok, because we're taking the abs() when computing these quantities and they are always << 1
-            else
-            {
-                features[0][i] = std::abs(std::log(ft[i]));
-            }
+            features[0][i] = ft[i];
         }
+
+        // scale the residuals and convergence rate into a range of [0, 1], PIMPLE iter & GAMG iter are already scaled
+        features[0][2] = (torch::sigmoid(features[0][2]) - 0.5) / 1.5e-4;
+        features[0][3] = (-torch::log(features[0][3]) - 1) / 10;
+        features[0][4] = (-torch::log(features[0][4]) - 1) / 10;
+        features[0][5] = (torch::sigmoid(features[0][5]) - 0.5) / 2e-4;
 
         // make prediction
         std::vector<torch::jit::IValue> policyFeatures{features};

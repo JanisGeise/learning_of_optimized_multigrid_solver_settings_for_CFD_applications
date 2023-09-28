@@ -162,8 +162,8 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
     if n_inputs == 6:
         names = [r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$",
                  r"$\frac{\sum{N_{GAMG}-N_{GAMG, \, max}}}{\sum{N_{GAMG} + N_{GAMG, \, max}}}$",
-                 "$|ln(|\Delta \\boldsymbol{R}_{median}|)|$", "$|ln(\\boldsymbol{R}_0)|$",
-                 "$|ln(|\Delta \\boldsymbol{R}_{max}|)|$", "$|ln(|\Delta \\boldsymbol{R}_{min}|)|$"]
+                 "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$", "$-ln(\\boldsymbol{R}_0)^*$",
+                 "$-ln(|\Delta \\boldsymbol{R}_{max}|)^*$", "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"]
     else:
         names = [r"$N_{PIMPLE}$", r"$N_{GAMG, \, max}$", r"$\sum{N_{GAMG}}$",
                  "$|ln(|\Delta \\boldsymbol{R}_{median}|)|$", "$|ln(\\boldsymbol{R}_0)|$",
@@ -183,7 +183,7 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
         # add label for each input parameter
         ax.arrow(-7 * r, pos_in[-n], 3*r, 0, color="green", head_width=0.02, clip_on=False, overhang=0.3)
 
-        if n_inputs == 6 and names[n-1].startswith(r"$\frac{\sum{N_{GAMG}"):
+        if n_inputs == 6:
             ax.annotate(names[n - 1], (-42 * r, pos_in[-n]), annotation_clip=False, color="green")
         else:
             ax.annotate(names[n-1], (-35 * r, pos_in[-n]), annotation_clip=False, color="green")
