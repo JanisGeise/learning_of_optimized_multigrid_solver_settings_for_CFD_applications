@@ -161,7 +161,8 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
     # names of labels for policy input
     if n_inputs == 6:
         names = [r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$",
-                 r"$\frac{\sum{N_{GAMG}-N_{GAMG, \, max}}}{\sum{N_{GAMG} + N_{GAMG, \, max}}}$",
+                 r"$\frac{ \left( \sum{N_{GAMG}} \right) - N_{GAMG, \, max}}"
+                 r"{ \left( \sum{N_{GAMG}} \right) + N_{GAMG, \, max}}$",
                  "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$", "$-ln(\\boldsymbol{R}_0)^*$",
                  "$-ln(|\Delta \\boldsymbol{R}_{max}|)^*$", "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"]
     else:

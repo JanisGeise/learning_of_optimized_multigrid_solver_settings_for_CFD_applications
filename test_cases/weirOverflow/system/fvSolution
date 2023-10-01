@@ -16,13 +16,13 @@ FoamFile
 
 solvers
 {
-    p_rgh
-    {
-        solver          GAMG;
-        smoother        DICGaussSeidel;
-        tolerance       1e-07;
-        relTol          0.05;
-    }
+	p_rgh
+	{
+		solver 	    GAMG;
+		smoother 	DICGaussSeidel;
+		tolerance 	1e-06;
+		relTol 	    0.01;
+	}
 
     alpha.water
     {

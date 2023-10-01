@@ -171,6 +171,10 @@ def map_keys_to_labels(key: str) -> str:
         label = "$|\Delta \\boldsymbol{R}_{max}|$"
     elif key == "time":
         label = "$t_{num}$"
+    elif key == "ratio_gamg_iter":
+        label = r"$\frac{\left(\sum{N_{GAMG}}\right) - N_{GAMG,\, max}}{\left(\sum{N_{GAMG}}\right)+N_{GAMG, \, max}}$"
+    elif key == "ratio_solver_iter":
+        label = r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$"
     else:
         label = "$parameter$"
     return label
