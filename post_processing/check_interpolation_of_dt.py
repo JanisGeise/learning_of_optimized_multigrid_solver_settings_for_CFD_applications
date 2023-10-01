@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # load the dt & CPU times of the base case
     t_base = load_trajectories(base_path)
 
-    # load an example trajectory of a policy and make sure it has the same size ass the base case
+    # load an example trajectory of a policy and make sure it has the same size as the base case
     t_traj = load_trajectories(example_traj_path)[:t_base.size()[0], :]
 
     # interpolate the t_CPU of the base case at the dt of the trajectory -> interp(dt_traj, dt_base, t_CPU_base)

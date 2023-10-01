@@ -453,22 +453,18 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
 
         // tmp work-around:
         // for now, we only modify 'interpolateCorrection' or 'smoother', so just keep everything else const.
+        const double relTol = fvMeshFunctionObject::mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<double>("relTol");
+        const double tol = fvMeshFunctionObject::mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<double>("tolerance");
+        // convert to word
+        const word relTol_ = Foam::name(relTol);
+        const word tol_ = Foam::name(tol);
         const word& solverSettings = "\t{\n"
                                              "\t\tsolver \tGAMG;\n"
                                              "\t\tsmoother \t" + smoother[action_[1]] + ";\n"
-                                             // "\t\tsmoother \tDICGaussSeidel;\n"
-                                             "\t\ttolerance \t1e-06;\n"
-                                             "\t\trelTol \t0.01;\n"
+                                             "\t\ttolerance \t" + tol_ + ";\n"
+                                             "\t\trelTol \t" + relTol_ + ";\n"
                                              "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
-                                             // "\t\tinterpolateCorrection \tno;\n"
-                                             /*
-                                             "\t\tcoarsestLevelCorr\n\t\t\t{\n"
-                                             "\t\t\t\tsolver          smoothSolver;\n"
-                                             "\t\t\t\tsmoother  DICGaussSeidel;\n"
-                                             "\t\t\t\trelTol          0.05;\n";
-                                             */
                                      "\t}\n";
-
         // update the fvSolution file
         writeFvSolutionFile(solverSettings, fieldName, 5);
         //*/

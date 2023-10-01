@@ -20,8 +20,8 @@ solvers
 	{
 		solver 	    GAMG;
 		smoother 	DICGaussSeidel;
-		tolerance 	1e-06;
-		relTol 	    0.01;
+		tolerance 	1e-07;
+		relTol 	    0.05;
 	}
 
     alpha.water
