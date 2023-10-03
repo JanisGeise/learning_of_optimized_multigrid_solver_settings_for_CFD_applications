@@ -25,36 +25,42 @@ def compute_auto_correlations(data: List[dict], key_list: list) -> list:
     for k in key_list:
         tmp = []
         for i, case in enumerate(data):
-            tmp.append(acf(pt.tensor(case[k])))
+            tmp.append(acf(case[k]))
         corr.append(tmp)
     return corr
 
 
 if __name__ == "__main__":
     # main path to all the cases
-    load_path = join(r"..", "run", "drl", "smoother", "results_weirOverflow")
+    # load_path = join(r"..", "run", "drl", "smoother", "results_weirOverflow")
+    load_path = join(r"..", "run", "parameter_study", "influence_solver_settings", "smoother")
 
     # list with the cases
-    cases = ["FDIC_local/run_1", "DIC_local/run_1", "DICGaussSeidel_local/run_1", "symGaussSeidel_local/run_1",
-             "nonBlockingGaussSeidel_local/run_1", "GaussSeidel_local/run_1"]
-    # cases = ["no_local/run_1", "yes_local/run_1"]
+    cases = ["surfaceMountedCube_DICGaussSeidel", "mixerVesselAMI_DICGaussSeidel",
+             "../../../drl/smoother/results_weirOverflow/DICGaussSeidel_local/run_1",
+             "../../../drl/smoother/results_cylinder2D/DICGaussSeidel_local/run_1"]
 
     # legend entries for the plot
-    legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    # legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
+    legend = ["$surfaceMountedCube$", "$mixerVesselAMI$", "$weirOverflow$", "$cylinder2D$"]
     # legend = ["$no$", "$yes$"]
 
     # position of the legend (in which subplot)
-    pos_legend = [1, 0]
+    pos_legend = [1, 2]
 
-    # portrait or landscape (wide = true)
+    # portrait (wide = false) or landscape (wide = true)
     wide = True
 
     # save path for the plots
-    save_path = join(load_path, "plots")
+    save_path = join(r"..", "run", "drl", "autocorrelations_new_features", "plots")
 
-    # dictionary keys of the properties of which the auto-correlations should be plotted
-    keys = ["n_solver_iter", "sum_gamg_iter", "max_gamg_iter", "init_residual", "min_convergence_rate",
-            "median_convergence_rate", "avg_convergence_rate", "max_convergence_rate"]
+    # dictionary keys of the properties of which the auto-correlations should be plotted (old features)
+    # keys = ["n_solver_iter", "sum_gamg_iter", "max_gamg_iter", "init_residual", "min_convergence_rate",
+    #         "median_convergence_rate", "avg_convergence_rate", "max_convergence_rate"]
+
+    # new features
+    keys = ["ratio_solver_iter", "ratio_gamg_iter", "init_residual_scaled", "min_convergence_rate_scaled",
+            "median_convergence_rate_scaled", "max_convergence_rate_scaled"]
 
     assert len(keys) % 2 == 0, "the length of the 'keys'-list needs to be an even number!"
 
@@ -81,6 +87,22 @@ if __name__ == "__main__":
             pt.save(get_GAMG_residuals(load_path_tmp), join(load_path_tmp, "log_data_filtered.pt"))
             log_data.append(pt.load(join(load_path_tmp, "log_data_filtered.pt")))
 
+    # compute the new input features for the policy network
+    for l in log_data:
+        # ratio GAMG iterations
+        l["ratio_gamg_iter"] = (l["sum_gamg_iter"] - l["max_gamg_iter"]) / (l["sum_gamg_iter"] + l["max_gamg_iter"])
+
+        # ratio PIMPLE iterations / max. allowed PIMPLE iterations (max. is always 50)
+        l["ratio_solver_iter"] = l["n_solver_iter"] / 50
+
+        # scaled initial residual
+        l["init_residual_scaled"] = (-pt.log(l["init_residual"]) - 1) / 10
+
+        # scaled convergence rates
+        l["median_convergence_rate_scaled"] = (pt.sigmoid(l["median_convergence_rate"]) - 0.5) / 1.5e-4
+        l["max_convergence_rate_scaled"] = (-pt.log(l["max_convergence_rate"]) - 1) / 10
+        l["min_convergence_rate_scaled"] = (pt.sigmoid(l["min_convergence_rate"]) - 0.5) / 2e-5
+
     # compute the auto-correlation
     auto_corr = compute_auto_correlations(log_data, keys)
 
@@ -104,6 +126,9 @@ if __name__ == "__main__":
                 else:
                     ax[row][col].plot(range(len(auto_corr[counter][c])), auto_corr[counter][c], marker="x")
             ax[row][col].set_title(map_keys_to_labels(keys[counter]))
+
+            # it is sufficient to look at the correlations of the 1st 20 time steps
+            ax[row][col].set_xlim(0, 20)
             counter += 1
         ax[row][0].set_ylabel(r"$R_{ii}$", fontsize=13)
 
@@ -111,12 +136,12 @@ if __name__ == "__main__":
         ax[-1][i].set_xlabel("$time$ $delay$", fontsize=13)
 
     fig.tight_layout()
-    ax[pos_legend[0]][pos_legend[1]].legend(loc="lower left", framealpha=1.0, ncol=1)
+    ax[pos_legend[0]][pos_legend[1]].legend(loc="right", framealpha=1.0, ncol=1)
     fig.subplots_adjust(hspace=0.2)
     if wide:
-        plt.savefig(join(save_path, f"auto_correlations_residuals_wide.png"), dpi=340)
+        plt.savefig(join(save_path, f"auto_correlations_residuals_new_features_wide.png"), dpi=340)
     else:
-        plt.savefig(join(save_path, f"auto_correlations_residuals.png"), dpi=340)
+        plt.savefig(join(save_path, f"auto_correlations_residuals_new_features.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")

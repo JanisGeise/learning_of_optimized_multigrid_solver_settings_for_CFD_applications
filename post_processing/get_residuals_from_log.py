@@ -104,7 +104,8 @@ def get_GAMG_residuals(case_path: str) -> dict:
 
                     # end of num. time step
                     elif logfile[l].startswith("ExecutionTime = "):
-                        # required solver iterations are printed 1 line above the execution time
+                        # required solver iterations are printed 1 line above the execution time, we can't convert them
+                        # to tensors because each list container different amount of data
                         residual_data["n_solver_iter"].append(int(logfile[l-1].split(" ")[-2]))
                         residual_data["initial_residual"].append(init_residual)
                         residual_data["final_residual"].append(final_residual)
@@ -126,17 +127,20 @@ def get_GAMG_residuals(case_path: str) -> dict:
                     l += 1
 
         # compute statistical properties of the initial residuals and N_GAMG_iter
-        residual_data["sum_gamg_iter"] = [sum(i) for i in residual_data["n_gamg_iter"]]
-        residual_data["max_gamg_iter"] = [max(i) for i in residual_data["n_gamg_iter"]]
-        residual_data["max_init_residual"] = [max(i) for i in residual_data["initial_residual"]]
-        residual_data["init_residual"] = [i[0] for i in residual_data["initial_residual"]]
+        residual_data["sum_gamg_iter"] = pt.tensor([sum(i) for i in residual_data["n_gamg_iter"]])
+        residual_data["max_gamg_iter"] = pt.tensor([max(i) for i in residual_data["n_gamg_iter"]])
+        residual_data["max_init_residual"] = pt.tensor([max(i) for i in residual_data["initial_residual"]])
+        residual_data["init_residual"] = pt.tensor([i[0] for i in residual_data["initial_residual"]])
 
         # compute the max. & median convergence rate -> median, because at beginning high, but at the end = 0
         convergence_rate = [[abs(t[i+1] - t[i]) for i in range(len(t)-1)] for t in residual_data["initial_residual"]]
-        residual_data["max_convergence_rate"] = [max(i) for i in convergence_rate]
-        residual_data["min_convergence_rate"] = [min(i) for i in convergence_rate]
-        residual_data["avg_convergence_rate"] = [pt.mean(pt.tensor(i)).item() for i in convergence_rate]
-        residual_data["median_convergence_rate"] = [pt.median(pt.tensor(i)).item() for i in convergence_rate]
+        residual_data["max_convergence_rate"] = pt.tensor([max(i) for i in convergence_rate])
+        residual_data["min_convergence_rate"] = pt.tensor([min(i) for i in convergence_rate])
+        residual_data["avg_convergence_rate"] = pt.tensor([pt.mean(pt.tensor(i)).item() for i in convergence_rate])
+        residual_data["median_convergence_rate"] = pt.tensor([pt.median(pt.tensor(i)).item() for i in convergence_rate])
+
+        # convert the N PIMPLE iter to tensor
+        residual_data["n_solver_iter"] = pt.tensor(residual_data["n_solver_iter"])
 
         return residual_data
 
@@ -175,6 +179,14 @@ def map_keys_to_labels(key: str) -> str:
         label = r"$\frac{\left(\sum{N_{GAMG}}\right) - N_{GAMG,\, max}}{\left(\sum{N_{GAMG}}\right)+N_{GAMG, \, max}}$"
     elif key == "ratio_solver_iter":
         label = r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$"
+    elif key == "init_residual_scaled":
+        label = "$-ln(\\boldsymbol{R}_0)^*$"
+    elif key == "median_convergence_rate_scaled":
+        label = "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$"
+    elif key == "min_convergence_rate_scaled":
+        label = "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"
+    elif key == "max_convergence_rate_scaled":
+        label = "$-ln(|\Delta \\boldsymbol{R}_{max}|)^*$"
     else:
         label = "$parameter$"
     return label
