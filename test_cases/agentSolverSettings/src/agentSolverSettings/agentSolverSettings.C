@@ -332,8 +332,8 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
 
         // scale the residuals and convergence rate into a range of [0, 1], PIMPLE iter & GAMG iter are already scaled
         features[0][2] = (torch::sigmoid(features[0][2]) - 0.5) / 1.5e-4;
-        features[0][3] = (-torch::log(features[0][3]) - 1) / 10;
-        features[0][4] = (-torch::log(features[0][4]) - 1) / 10;
+        features[0][3] = (torch::sigmoid(features[0][3]) - 0.5) / 8e-4;
+        features[0][4] = (torch::sigmoid(features[0][4]) - 0.5) / 5e-4;
         features[0][5] = (torch::sigmoid(features[0][5]) - 0.5) / 2e-4;
 
         // make prediction

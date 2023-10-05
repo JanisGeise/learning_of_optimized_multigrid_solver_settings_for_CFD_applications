@@ -180,13 +180,13 @@ def map_keys_to_labels(key: str) -> str:
     elif key == "ratio_solver_iter":
         label = r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$"
     elif key == "init_residual_scaled":
-        label = "$-ln(\\boldsymbol{R}_0)^*$"
+        label = "$sigmoid(\\boldsymbol{R}_0)^*$"
     elif key == "median_convergence_rate_scaled":
         label = "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$"
     elif key == "min_convergence_rate_scaled":
         label = "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"
     elif key == "max_convergence_rate_scaled":
-        label = "$-ln(|\Delta \\boldsymbol{R}_{max}|)^*$"
+        label = "$sigmoid(|\Delta \\boldsymbol{R}_{max}|)^*$"
     else:
         label = "$parameter$"
     return label

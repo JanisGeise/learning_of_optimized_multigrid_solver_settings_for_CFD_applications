@@ -21,10 +21,12 @@ def load_rewards(load_dir: str) -> dict:
     obs = [pt.load(join(f)) for f in files]
     params = ["rewards"]
     obs_out = {}
+    traj_len = {"min": [], "max": [], "mean": [], "std": []}
 
     # add keys for mean and std. deviation to dict
     for key in params:
         obs_out.update({f"{key}_mean": []})
+        obs_out.update({f"{key}_median": []})
         obs_out.update({f"{key}_std": []})
 
     for episode in range(len(obs)):
@@ -32,7 +34,7 @@ def load_rewards(load_dir: str) -> dict:
         # omit all failed trajectories
         n_dt = [i["rewards"].size()[0] if "rewards" in i else None for i in obs[episode]]
         tmp = pt.zeros((sum([i for i in n_dt if i is not None]), ))
-
+        traj_len_tmp = []
         for key in params:
             for i, runner in enumerate(obs[episode]):
                 # we want the quantities' avg. wrt episode, so it's ok to stack all trajectories in one tensor
@@ -44,12 +46,26 @@ def load_rewards(load_dir: str) -> dict:
                         start = sum([i for i in n_dt[:i] if i is not None])
                         end = sum([i for i in n_dt[:i+1] if i is not None])
                         tmp[start:end] = obs[episode][i][key]
+                        traj_len_tmp.append(len(obs[episode][i][key]))
                 else:
                     continue
 
             # compute the mean and st. deviation wrt episode
             obs_out[f"{key}_mean"].append(pt.mean(tmp).item())
+            obs_out[f"{key}_median"].append(pt.median(tmp).item())
             obs_out[f"{key}_std"].append(pt.std(tmp).item())
+
+            # compute the trajectory length to check how much they vary if dt != const
+            traj_len["min"].append(min(traj_len_tmp))
+            traj_len["max"].append(max(traj_len_tmp))
+            traj_len["mean"].append(pt.mean(pt.tensor(traj_len_tmp).float()).item())
+            traj_len["std"].append(pt.std(pt.tensor(traj_len_tmp).float()).item())
+
+    # print out some info
+    print(f"trajectory length for complete PPO-training (min. / max. / mean / 1 sigma / 3 sigma): "
+          f"{min(traj_len['min'])} / {max(traj_len['max'])} / {round(pt.mean(pt.tensor(traj_len['mean'])).item(), 3)}/"
+          f"{round(pt.std(pt.tensor(traj_len['mean'])).item(), 3)} / "
+          f"{round(3 * pt.std(pt.tensor(traj_len['mean'])).item(), 3)}")
 
     return obs_out
 
@@ -68,7 +84,8 @@ def resort_results(data):
 
 
 def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Union[list, pt.Tensor],
-                            n_cases: int = 0, save_dir: str = "plots", legend_list: list = None) -> None:
+                            n_cases: int = 0, save_dir: str = "plots", legend_list: list = None,
+                            median: bool = False) -> None:
     """
     plots the mean rewards received throughout the training periode and the corresponding standard deviation
 
@@ -77,6 +94,7 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
     :param n_cases: number of cases to compare (= number of imported data)
     :param save_dir: path to which directory the plot should be saved
     :param legend_list: list containing the legend entries
+    :param median: median or mean rewards (False = mean)
     :return: None
     """
     # use default color cycle
@@ -90,7 +108,10 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
                     ax[i].plot(range(len(reward_mean[c])), reward_mean[c], color=color[c], label=legend_list[c])
                 else:
                     ax[i].plot(range(len(reward_mean[c])), reward_mean[c], color=color[c], label=f"case {c}")
-                ax[i].set_ylabel(r"$\mu(r)$")
+                if median:
+                    ax[i].set_ylabel(r"$median(r)$")
+                else:
+                    ax[i].set_ylabel(r"$\mu(r)$")
 
             else:
                 if legend_list:
@@ -103,9 +124,12 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="lower left", framealpha=1.0, ncol=4)
+    ax[0].legend(loc="lower left", framealpha=1.0, ncol=1)
     fig.subplots_adjust(wspace=0.2)
-    plt.savefig(join(save_dir, "rewards_vs_episode.png"), dpi=340)
+    if median:
+        plt.savefig(join(save_dir, "rewards_vs_episode_median.png"), dpi=340)
+    else:
+        plt.savefig(join(save_dir, "rewards_vs_episode.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -117,10 +141,10 @@ if __name__ == "__main__":
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e100_r5_b5_f0.6_cluster_1st_test_combined", "e100_r10_b10_f0.6_cluster_1st_test_combined"]
+    cases = ["e100_r10_b20_f0.8_new_features", "e100_r10_b30_f0.8_new_features_const_sampling"]
 
     # legend entries for the plots
-    legend = ["$b = 5$", "$b = 10$"]
+    legend = ["$b = 20$", "$b = 30,$ $const.$ $sampling$"]
 
     # create directory for plots
     if not path.exists(save_path):
@@ -138,3 +162,7 @@ if __name__ == "__main__":
     # plot mean rewards wrt to episode and the corresponding std. deviation
     plot_rewards_vs_episode(reward_mean=results["rewards_mean"], reward_std=results["rewards_std"],
                             n_cases=len(cases), legend_list=legend, save_dir=save_path)
+
+    # plot median rewards wrt to episode and the corresponding std. deviation
+    plot_rewards_vs_episode(reward_mean=results["rewards_median"], reward_std=results["rewards_std"],
+                            n_cases=len(cases), legend_list=legend, save_dir=save_path, median=True)

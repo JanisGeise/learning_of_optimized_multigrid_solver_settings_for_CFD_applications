@@ -163,8 +163,8 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
         names = [r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$",
                  r"$\frac{ \left( \sum{N_{GAMG}} \right) - N_{GAMG, \, max}}"
                  r"{ \left( \sum{N_{GAMG}} \right) + N_{GAMG, \, max}}$",
-                 "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$", "$-ln(\\boldsymbol{R}_0)^*$",
-                 "$-ln(|\Delta \\boldsymbol{R}_{max}|)^*$", "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"]
+                 "$sigmoid(|\Delta \\boldsymbol{R}_{median}|)^*$", "$sigmoid(\\boldsymbol{R}_0)^*$",
+                 "$sigmoid(|\Delta \\boldsymbol{R}_{max}|)^*$", "$sigmoid(|\Delta \\boldsymbol{R}_{min}|)^*$"]
     else:
         names = [r"$N_{PIMPLE}$", r"$N_{GAMG, \, max}$", r"$\sum{N_{GAMG}}$",
                  "$|ln(|\Delta \\boldsymbol{R}_{median}|)|$", "$|ln(\\boldsymbol{R}_0)|$",

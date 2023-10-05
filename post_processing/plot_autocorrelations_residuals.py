@@ -1,13 +1,15 @@
 """
     compute and plot the auto-correlation of the statistical properties of the residuals
 """
+import pandas as pd
 import torch as pt
 import matplotlib.pyplot as plt
 
+from typing import List
 from os.path import join
+from seaborn import heatmap
 from os import makedirs, path
 from statsmodels.tsa.stattools import acf
-from typing import List
 
 from get_residuals_from_log import get_GAMG_residuals, map_keys_to_labels
 
@@ -44,6 +46,9 @@ if __name__ == "__main__":
     # legend = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"]
     legend = ["$surfaceMountedCube$", "$mixerVesselAMI$", "$weirOverflow$", "$cylinder2D$"]
     # legend = ["$no$", "$yes$"]
+
+    # save names for correlation plots
+    save_name = ["surfaceMountedCube", "mixerVesselAMI", "weirOverflow", "cylinder2D"]
 
     # position of the legend (in which subplot)
     pos_legend = [1, 2]
@@ -96,11 +101,11 @@ if __name__ == "__main__":
         l["ratio_solver_iter"] = l["n_solver_iter"] / 50
 
         # scaled initial residual
-        l["init_residual_scaled"] = (-pt.log(l["init_residual"]) - 1) / 10
+        l["init_residual_scaled"] = (pt.sigmoid(l["init_residual"]) - 0.5) / 8e-4
 
         # scaled convergence rates
         l["median_convergence_rate_scaled"] = (pt.sigmoid(l["median_convergence_rate"]) - 0.5) / 1.5e-4
-        l["max_convergence_rate_scaled"] = (-pt.log(l["max_convergence_rate"]) - 1) / 10
+        l["max_convergence_rate_scaled"] = (pt.sigmoid(l["max_convergence_rate"]) - 0.5) / 5e-4
         l["min_convergence_rate_scaled"] = (pt.sigmoid(l["min_convergence_rate"]) - 0.5) / 2e-5
 
     # compute the auto-correlation
@@ -109,6 +114,26 @@ if __name__ == "__main__":
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsmath}"})
+
+    # plot cross-correlations between the specified keys as heatmap (linear correlations only)
+    log_data = [pd.DataFrame.from_dict(l) for l in log_data]
+
+    # remove all unused keys
+    unused_keys = [k for k in log_data[0].keys() if k not in keys]
+    [l.drop(unused_keys, inplace=True, axis=1) for l in log_data]
+
+    # plot a heatmap for each case
+    labels = [map_keys_to_labels(k) for k in keys]
+    for i, l in enumerate(log_data):
+        fig, ax = plt.subplots(figsize=(7, 6))
+        heatmap(l.corr(), vmin=-1, vmax=1, center=0, cmap="Greens", square=True, annot=True, xticklabels=labels,
+                yticklabels=labels, cbar=True, linewidths=0.30, linecolor="white", ax=ax, cbar_kws={"shrink": 0.75},
+                fmt=".2g")
+        fig.tight_layout()
+        plt.savefig(join(save_path, f"correlations_{save_name[i]}.png"), dpi=340)
+        plt.show(block=False)
+        plt.pause(2)
+        plt.close(fig)
 
     # plot auto correlation for the specified keys
     counter = 0
@@ -136,7 +161,7 @@ if __name__ == "__main__":
         ax[-1][i].set_xlabel("$time$ $delay$", fontsize=13)
 
     fig.tight_layout()
-    ax[pos_legend[0]][pos_legend[1]].legend(loc="right", framealpha=1.0, ncol=1)
+    ax[pos_legend[0]][pos_legend[1]].legend(loc="upper right", framealpha=1.0, ncol=1)
     fig.subplots_adjust(hspace=0.2)
     if wide:
         plt.savefig(join(save_path, f"auto_correlations_residuals_new_features_wide.png"), dpi=340)
