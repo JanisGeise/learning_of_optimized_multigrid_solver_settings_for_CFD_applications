@@ -31,24 +31,37 @@ def load_cpu_times(case_path: str) -> DataFrame:
     return times
 
 
-def load_residuals(case_path: str) -> DataFrame:
+def load_residuals(case_path: str, new_features: bool = True) -> DataFrame:
     """
     load the properties of the residuals used as policy input wrt time step written out by the 'agentSolverSettings'
     function object throughout the simulation
 
     :param case_path: path to the directory where the results of the simulation are located
+    :param new_features: flag if the cases with policy where run using the new input features (True) or old ones (False)
     :return: the properties of the residuals wrt time steps
     """
     # same names as in 'get_residuals_from_log.py', so we can use the 'map_keys_to_label' function later for plotting,
     # also these keys will be returned if we filter the log file when we didn't use a policy
-    names = ["time", "init_residual", "median_convergence_rate", "max_convergence_rate", "min_convergence_rate",
-             "sum_gamg_iter", "max_gamg_iter", "n_solver_iter"]
-    res = read_csv(case_path, sep="\t", comment="#", header=None, names=names, usecols=[0, 2, 3, 4, 5, 6, 7, 8])
+    if new_features:
+        names = ["time", "init_residual", "median_convergence_rate", "max_convergence_rate", "min_convergence_rate",
+                 "ratio_gamg_iter", "ratio_solver_iter"]
+        cols = [0, 2, 3, 4, 5, 6, 7]
+    else:
+        names = ["time", "init_residual", "median_convergence_rate", "max_convergence_rate", "min_convergence_rate",
+                 "sum_gamg_iter", "max_gamg_iter", "n_solver_iter"]
+        cols = [0, 2, 3, 4, 5, 6, 7, 8]
+    res = read_csv(case_path, sep="\t", comment="#", header=None, names=names, usecols=cols)
 
     # in case we didn't use a policy (e.g. for the default simulations used for comparison) we need to compute the
     # properties of the residuals based on solver's log file since there is no 'agentSolverSettings' function object
     if res.empty:
         res = pd.DataFrame.from_dict(get_GAMG_residuals(case_path.split("postProcessing")[0]))
+
+        # if new_features: compute the new features, we always have 50 as max. PIMPLE iterations
+        if new_features:
+            res["ratio_solver_iter"] = res["n_solver_iter"] / 50
+            res["ratio_gamg_iter"] = (res["sum_gamg_iter"] - res["sum_gamg_iter"]) / \
+                                     (res["sum_gamg_iter"] + res["sum_gamg_iter"])
 
         # drop the information we haven't available when using the policy
         res.drop([i for i in res.keys() if i not in names], inplace=True, axis=1)
@@ -101,7 +114,7 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
     for s in simulations:
         tmp, traj_tmp = [], []
 
-        # for each case glob all runs so we can compute the avg. runtimes etc.
+        # for each case glob all runs, so we can compute the avg. runtimes etc.
         for i, case in enumerate(glob(join(load_dir, s, "*"))):
             tmp.append(load_cpu_times(join(case, "postProcessing", "time", "0", "timeInfo.dat")))
             traj_tmp.append(load_trajectory(join(case, "trajectory.txt")))
@@ -281,8 +294,8 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
-    fig.legend(loc="upper center", framealpha=1.0, ncol=4)
-    fig.subplots_adjust(top=0.96)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
+    fig.subplots_adjust(top=0.9)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -324,14 +337,14 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
             ax[row][col].set_xlim(0, xmax)
             ax[-1][col].set_xlabel(r"$t \, / \, T$", fontsize=13)
 
-            if keys[counter] != "max_gamg_iter" and keys[counter] != "min_convergence_rate":
+            if keys[counter] != "max_gamg_iter" and keys[counter] != "min_convergence_rate" and not "ratio" in keys[counter]:
                 ax[row][col].set_yscale("log")
 
             counter += 1
 
     fig.tight_layout()
-    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.92)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=2)
+    fig.subplots_adjust(top=0.9)
     plt.savefig(join(save_dir, f"comparison_residuals.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -340,32 +353,36 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_weirOverflow")
+    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
     # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
     #          "nonBlockingGaussSeidel_local", "GaussSeidel_local"]
-    cases = ["default_settings_no_policy", "default_smoother_only_with_policy",
-             "trained_policy_b5_r1=100_no_log", "trained_policy_b10_r1=100_no_log", "trained_policy_b20_r1=100_no_log"]
+    cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
+             # "DIC_local",
+             "random_policy_new_features", "trained_policy_b16_new_features", "trained_policy_b30_new_features_const_sampling",
+             "trained_policy_b64_new_features"]
 
     # xticks for the plots
     # xticks = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
     #           "$GaussSeidel$"]
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$DICGaussSeidel$\n$(policy)$",
-              "$final$ $policy$\n$(b = 5)$", "$final$ $policy$\n$(b = 10)$", "$final$ $policy$\n$(b = 20)$"]
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
+              # "$DIC$\n$(no$ $policy)$",
+              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 30,$ $const.$ $sampling)$",
+              "$final$ $policy$\n$(b = 64)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = True
+    scale = False
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
-    # factor = 1 / 20
+    factor = 1 / 20
 
     # factor for weirOverflow case
-    factor = 1 / 0.4251
+    # factor = 1 / 0.4251
 
     # create directory for plots
     if not path.exists(save_path):
@@ -381,12 +398,13 @@ if __name__ == "__main__":
     compare_residuals(load_path, cases, save_dir=save_path, sf=factor, legend=[i.replace("\n", " ") for i in xticks])
 
     # plot the avg. execution times and the corresponding std. deviation
-    plot_avg_exec_times_final_policy(results, save_dir=save_path, scale_wrt_default=scale, default=default_idx)
+    plot_avg_exec_times_final_policy(results, save_dir=save_path, scale_wrt_default=scale, default=default_idx,
+                                     xlabels=xticks)
 
     # plot the avg. amount of time steps without the std. deviation (std. dev. is zero for same settings)
     plot_avg_exec_times_final_policy(results, keys=["mean_n_dt", "std_n_dt"], ylabel=r"$N_{\Delta t}$",
                                      save_dir=save_path, scale_wrt_default=scale, default=default_idx,
-                                     save_name="mean_n_dt")
+                                     save_name="mean_n_dt", xlabels=xticks)
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
     plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
@@ -426,7 +444,7 @@ if __name__ == "__main__":
     xticks = [i.replace("\n", " ") for i in xticks]
 
     fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.87)
+    fig.subplots_adjust(top=0.86)
     if scale:
         plt.savefig(join(save_path, "execution_times_vs_dt.png"), dpi=340)
     else:
