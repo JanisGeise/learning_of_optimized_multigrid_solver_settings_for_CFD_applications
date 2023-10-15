@@ -22,6 +22,8 @@ solvers
 		smoother 	DICGaussSeidel;
 		tolerance 	1e-07;
 		relTol 	    0.05;
+        interpolateCorrection   no;
+        nCellsInCoarsestLevel   10;
 	}
 
     alpha.water

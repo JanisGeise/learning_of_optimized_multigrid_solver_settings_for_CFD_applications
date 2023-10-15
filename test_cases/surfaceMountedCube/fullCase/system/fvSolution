@@ -22,6 +22,8 @@ solvers
         tolerance        1e-8;
         relTol           0.01;
         smoother         DICGaussSeidel;
+        interpolateCorrection   no;
+        nCellsInCoarsestLevel   10;
     }
 
     pFinal

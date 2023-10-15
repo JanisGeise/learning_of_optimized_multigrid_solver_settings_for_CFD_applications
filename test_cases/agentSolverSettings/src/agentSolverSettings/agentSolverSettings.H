@@ -118,7 +118,7 @@ namespace functionObjects
 
 class agentSolverSettings
 :
-    public fvMeshFunctionObject,
+    public functionObjects::fvMeshFunctionObject,
     // public pimpleControl,
     public writeFile
 {
@@ -148,7 +148,7 @@ protected:
         word solverName_;
 
         // initialize vector for storing the actions ('interpolateCorrection' and 'smoother')
-        std::vector<int> action_ = {0, 0};
+        std::vector<int> action_ = {0, 0, 0};
 
         // the following parameters are taken from drlfoam
         //- training or evaluation mode
@@ -181,7 +181,7 @@ protected:
         void modifySolverSettingsDict(const word& fieldName);
 
         //- write the new solver settings to fvSolution
-        void writeFvSolutionFile(const word& solverSettings, const word& fieldName, const int nParameters) const;
+        void writeFvSolutionFile(const word& solverSettings, const word& fieldName, const int nParameters);
 
         //- write the properties of the residuals to file
         void writeResidualsToFile(Ostream& os, const word& fieldName);

@@ -16,19 +16,21 @@ FoamFile
 
 solvers
 {
-    "alpha.water.*"
-    {
-        nAlphaCorr          1;
-        nAlphaSubCycles     2;
-        cAlpha              1;
-    }
-
     p_rgh
     {
 		solver		GAMG;
 		smoother		DICGaussSeidel;
 		tolerance		1e-06;
 		relTol		0.01;
+        interpolateCorrection   no;
+        nCellsInCoarsestLevel   10;
+    }
+
+    "alpha.water.*"
+    {
+        nAlphaCorr          1;
+        nAlphaSubCycles     2;
+        cAlpha              1;
     }
 
     p_rghFinal

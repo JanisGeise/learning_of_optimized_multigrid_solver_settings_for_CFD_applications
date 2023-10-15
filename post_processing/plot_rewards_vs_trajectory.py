@@ -19,7 +19,7 @@ def load_rewards(load_dir: str) -> list:
     files = sorted(glob(join(load_dir, "observations_*.pt")), key=lambda x: int(x.split("_")[-1].split(".")[0]))
     observations = [pt.load(join(f)) for f in files]
 
-    # remove everything but the rewards and numerical time step for each episode and each trajectory in the buffer
+    # remove everything but the rewards for each episode and each trajectory in the buffer
     obs_out = [[traj["rewards"] for traj in o] for o in observations]
 
     return obs_out
