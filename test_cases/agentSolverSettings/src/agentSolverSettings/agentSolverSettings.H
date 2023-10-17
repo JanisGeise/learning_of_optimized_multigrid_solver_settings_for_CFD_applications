@@ -103,7 +103,7 @@ SourceFiles
 #include "fvMeshFunctionObject.H"
 #include "writeFile.H"
 #include "solverFieldSelection.H"
-// #include "pimpleControl.H"
+#include "pimpleControl.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -119,7 +119,7 @@ namespace functionObjects
 class agentSolverSettings
 :
     public functionObjects::fvMeshFunctionObject,
-    // public pimpleControl,
+    public pimpleControl,
     public writeFile
 {
 protected:
@@ -187,7 +187,6 @@ protected:
         void writeResidualsToFile(Ostream& os, const word& fieldName);
 
         //- save the trajectory to file, taken from drlfoam, https://github.com/OFDataCommittee/drlfoam
-        // void saveTrajectory(scalar prob_out) const;
         void saveTrajectory(torch::Tensor prob_out) const;
 
     // Generated Methods
@@ -200,6 +199,7 @@ protected:
 
 
 public:
+    const fvMesh& mesh_;            // taken from Code Tomislav
 
     //- Runtime type information
     TypeName("agentSolverSettings");

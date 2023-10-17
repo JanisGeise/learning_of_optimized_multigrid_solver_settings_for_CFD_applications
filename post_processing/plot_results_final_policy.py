@@ -88,6 +88,17 @@ def load_trajectory(load_dir: str) -> pt.Tensor or None:
             # otherwise there should only be one action
             tr.drop(columns=[" action"], inplace=True)
 
+        # in case we have a policy where 'nCellsInCoarsestLevel' is present, remove the probs and convert the action to
+        # a number (otherwise plot is not clear due to too many lines)
+        if " action2" in tr:
+            tr.drop(columns=[f" prob{i}" for i in range(7, 32)], inplace=True)
+
+            # convert the action to the corresponding 'nCellsInCoarsestLevel'
+            classes = pt.arange(10, 260, 10)
+            n_cells = classes[tr[" action2"]]
+            tr["n_cells"] = n_cells
+            tr.drop(columns=[" action2"], inplace=True)
+
         # convert to tensor, so we can avg. etc. easier later
         tr = pt.from_numpy(tr.values)
 
@@ -160,7 +171,46 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
             else:
                 continue
 
+    # if we have nCellsInCoarsestLevel, then put that in its own field
+    tmp = []
+    for i, o in enumerate(out_dict["mean_probs"]):
+        if o is not None and o.size()[1] > 7:
+            tmp.append(o[:, -1])
+            out_dict["mean_probs"][i] = o[:, :7]
+        else:
+            tmp.append(None)
+    out_dict["n_cells"] = tmp
+
     return out_dict
+
+
+def plot_nCellsInCoarsestLevel(n_cells: list, times: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
+    # use default color cycle
+    color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+
+    # in case no legend is given, use empty strings
+    legend = len(n_cells) * [""] if legend is None else legend
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    set_label = False
+    for c in range(len(n_cells)):
+        if n_cells[c] is not None:
+            if not set_label:
+                ax.scatter(times[c] / sf, n_cells[c], color=color[c], label=legend[c], marker=".")
+                set_label = True
+            else:
+                ax.scatter(times[c] / sf, n_cells[c], color=color[c], marker=".")
+        else:
+            continue
+    ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
+    ax.set_ylabel(r"$nCellsInCoarsestLevel$", fontsize=13)
+    fig.tight_layout()
+    fig.legend(loc="upper center", framealpha=1.0, ncol=2)
+    fig.subplots_adjust(top=0.9)
+    plt.savefig(join(save_dir, f"nCellsInCoarsestLevel.png"), dpi=340)
+    plt.show(block=False)
+    plt.pause(2)
+    plt.close("all")
 
 
 def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_exec"], save_dir: str = "",
@@ -295,7 +345,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.9)
+    fig.subplots_adjust(top=0.86)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -353,24 +403,19 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_cylinder2D")
+    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nCellsInCoarsestLevel",
+                     "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    # cases = ["FDIC_local", "DIC_local", "DICGaussSeidel_local", "symGaussSeidel_local",
-    #          "nonBlockingGaussSeidel_local", "GaussSeidel_local"]
     cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
              # "DIC_local",
-             "random_policy_new_features", "trained_policy_b16_new_features", "trained_policy_b30_new_features_const_sampling",
-             "trained_policy_b64_new_features"]
+             "random_policy", "trained_policy_b32"]
 
     # xticks for the plots
-    # xticks = ["$FDIC$", "$DIC$", "$DICGaussSeidel$", "$symGaussSeidel$", "$nonBlocking$\n$GaussSeidel$",
-    #           "$GaussSeidel$"]
     xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
               # "$DIC$\n$(no$ $policy)$",
-              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 30,$ $const.$ $sampling)$",
-              "$final$ $policy$\n$(b = 64)$"]
+              "$random$ $policy$", "$final$ $policy$\n$(b = 32)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -393,6 +438,10 @@ if __name__ == "__main__":
 
     results = get_mean_and_std_exec_time(load_path, cases)
 
+    # don't plot probabilities of actions or 'nCellsInCoarsestLevel' for random policy
+    results["mean_probs"][cases.index("random_policy")] = None
+    results["n_cells"][cases.index("random_policy")] = None
+
     # plot the properties of the residuals wrt time step and case,replace all new lines in the legend with spaces if
     # present, because otherwise the legend is too big
     compare_residuals(load_path, cases, save_dir=save_path, sf=factor, legend=[i.replace("\n", " ") for i in xticks])
@@ -410,6 +459,11 @@ if __name__ == "__main__":
     plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
                        param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
                               "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
+
+    # plot 'nCellsInCoarsestLevel' if it is available
+    if results["n_cells"]:
+        plot_nCellsInCoarsestLevel(results["n_cells"], results["t"], save_dir=save_path, sf=factor,
+                                   legend=[i.replace("\n", " ") for i in xticks])
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)

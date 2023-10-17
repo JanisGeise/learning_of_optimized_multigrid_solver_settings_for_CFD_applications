@@ -186,8 +186,7 @@ Foam::functionObjects::agentSolverSettings::agentSolverSettings
 
     // taken from Tomislav Maric (line 135, 136):
     // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
-    // pimpleControl(const_cast<fvMesh&>(fvMeshFunctionObject::mesh_)),
-    // mesh_(fvMeshFunctionObject::mesh_),           // NOT WORKING, ambiguity error for mesh_()
+    pimpleControl(const_cast<fvMesh&>(fvMeshFunctionObject::mesh_)),
 
     writeFile(obr_, name, typeName, dict),
     fieldSet_(fvMeshFunctionObject::mesh_),
@@ -197,7 +196,8 @@ Foam::functionObjects::agentSolverSettings::agentSolverSettings
     policy_name_(dict.get<word>("policy")),
     policy_(torch::jit::load(policy_name_)),
     seed_(dict.get<int>("seed")),
-    gen_(seed_)
+    gen_(seed_),
+    mesh_(fvMeshFunctionObject::mesh_)      // taken from Code Tomislav
 {
     read(dict);
 }
@@ -417,24 +417,25 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
              << "'smoother'              = " << smoother[action_[1]] << "\n\t\t\t\t\t\t\t"
              << "'nCellsInCoarsestLevel' = " << nCellsInCoarsestLevel[action_[2]] << "\n\n" << endl;
 
-        /* taken from Tomislav Maric (line 135, 136):
+        /* --------------------------------   NOT WORKING YET   -------------------------------
+        // taken from Tomislav Maric (line 135, 136):
         // https://gitlab.com/tmaric/openfoam-ml/-/blob/master/src/aiSolutionControl/aiSolutionControl/aiSolutionControl.C?ref_type=heads#L65
         // ----- START CODE Tomislav -----
         const fvSolution& fvSolutionDict (fvMeshFunctionObject::mesh_);
         fvSolution& fvSolutionRef = const_cast<fvSolution&>(fvSolutionDict);
         auto& solverDict = fvSolutionRef.subDict("solvers");
-        // ----- END CODE Tomislav -----
+        // ----- END CODE Tomislav ----- */
 
-        // try using IO-Object for writing (AUTO_WRITE only works if simulation is not decomposed and even then OpenFoam
-        // doesn't recognize the file as modified and doesn't update the settings)
+        /* try using IO-Object for writing
         IOdictionary fvSolutionDict
         (
           IOobject
            (
             "fvSolution",
-            mesh_.time().system(),
-            mesh_,
-            IOobject::NO_READ,
+            fvMeshFunctionObject::mesh_.time().system(),
+            fvMeshFunctionObject::mesh_,
+            // read option is the issue: works only if not decomposed, else MPI error; other options don't work as well (although on Pstream::Master())
+            IOobject::MUST_READ,
             IOobject::AUTO_WRITE
            )
         );
@@ -447,12 +448,19 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // declared as const Foam::dictionary, we can't modify it directly, so we have to save everything and write it back
         // to the file after modifications
         dictionary& solverDict = fvSolutionDict.subDict("solvers");
+        */
 
+        /*
         // update the dict, for now only with the 'interpolateCorrection' parameter (set is altering the settings internally)
         // the values which are already present are overwritten by calling the set() method
         solverDict.subDict(fieldName).set("interpolateCorrection", interpolateCorrection);
         solverDict.subDict(fieldName).set("smoother", smoother[action_[1]]);
         solverDict.subDict(fieldName).set("nCellsInCoarsestLevel", nCellsInCoarsestLevel[action_[2]]);
+
+        // update the pFinal dict accordingly
+        solverDict.subDict(fieldName + "Final").set("interpolateCorrection", interpolateCorrection);
+        solverDict.subDict(fieldName + "Final").set("smoother", smoother[action_[1]]);
+        solverDict.subDict(fieldName + "Final").set("nCellsInCoarsestLevel", nCellsInCoarsestLevel[action_[2]]);
 
         // replace the original solvers dict with the updated solver settings
         // fvSolutionDict.set("solvers", solverDict);
@@ -460,12 +468,7 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         // write the new solver settings to file
         // fvSolutionDict.regIOobject::write();
 
-        // check if the smoother was successfully modified -> always 1 dt delay, because re-reading is executed prior FO
-        Info << "[DEBUG] current smoother: " <<
-                 fvMeshFunctionObject::mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<word>("smoother")
-                 << "\n" << endl;
-        */
-
+        // --------------------------------   END NOT WORKING YET   ------------------------------- */
         // tmp work-around:
         // for now, we only modify 'interpolateCorrection', 'smoother' & nCellsInCoarsestLevel, so just keep everything else const.
         const double relTol = fvMeshFunctionObject::mesh_.lookupObject<IOdictionary>("fvSolution").subDict("solvers").subDict(fieldName).get<double>("relTol");
