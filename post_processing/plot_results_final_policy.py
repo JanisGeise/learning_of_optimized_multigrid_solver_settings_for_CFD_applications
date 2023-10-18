@@ -197,11 +197,12 @@ def plot_nCellsInCoarsestLevel(n_cells: list, times: list, save_dir: str, sf: fl
         if n_cells[c] is not None:
             if not set_label:
                 ax.scatter(times[c] / sf, n_cells[c], color=color[c], label=legend[c], marker=".")
-                set_label = True
+                continue
             else:
                 ax.scatter(times[c] / sf, n_cells[c], color=color[c], marker=".")
         else:
             continue
+        set_label = True
     ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
     ax.set_ylabel(r"$nCellsInCoarsestLevel$", fontsize=13)
     fig.tight_layout()
@@ -410,18 +411,18 @@ if __name__ == "__main__":
     # names of top-level directory containing the simulations run with different settings
     cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
              # "DIC_local",
-             "random_policy", "trained_policy_b32"]
+             "random_policy", "trained_policy_b16_r8", "trained_policy_b32_r8"]
 
     # xticks for the plots
     xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
               # "$DIC$\n$(no$ $policy)$",
-              "$random$ $policy$", "$final$ $policy$\n$(b = 32)$"]
+              "$random$ $policy$", "$final$ $policy$\n$(b = 16, r = 8)$", "$final$ $policy$\n$(b = 32, r = 8)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = False
+    scale = True
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20
