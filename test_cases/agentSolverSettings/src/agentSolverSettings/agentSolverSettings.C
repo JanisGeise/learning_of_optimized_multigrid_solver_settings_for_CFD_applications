@@ -334,9 +334,9 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
         std::vector<torch::jit::IValue> policyFeatures{features};
         torch::Tensor policy_out = policy_.forward(policyFeatures).toTensor();
 
-        // we have 32 output neurons: 0 = 'interpolateCorrection', 1...6 = 'smoother', 7...32 = 'nCellsInCoarsestLevel'
+        // we have 32 output neurons: 0 = 'interpolateCorrection', 1...6 = 'smoother', 7...16 = 'nFinestSweeps'
         std::vector<double> input_smoother;
-        std::vector<double> input_nCellsInCoarsestLevel;
+        std::vector<double> input_nFinestSweeps;
         for(label n=1; n < policy_out.sizes()[1]; n++)
             if (n < 7)
             {
@@ -344,7 +344,7 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
             }
             else
             {
-                input_nCellsInCoarsestLevel.push_back(policy_out[0][n].item<double>());
+                input_nFinestSweeps.push_back(policy_out[0][n].item<double>());
             }
 
         if (train_)
@@ -352,13 +352,13 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
             // the 1st item is for sampling from Bernoulli-distr. for 'interpolateCorrection'
             std::bernoulli_distribution distr1(policy_out[0][0].item<double>());
 
-            // use a discrete distribution in order to sample the action for 'smoother' and 'nCellsInCoarsestLevel'
+            // use a discrete distribution in order to sample the action for 'smoother' and 'nFinestSweeps'
             std::discrete_distribution<> distr2(input_smoother.begin(), input_smoother.end());
-            std::discrete_distribution<> distr3(input_nCellsInCoarsestLevel.begin(), input_nCellsInCoarsestLevel.end());
+            std::discrete_distribution<> distr3(input_nFinestSweeps.begin(), input_nFinestSweeps.end());
 
             action_[0] = distr1(gen_);          // action for 'interpolateCorrection'
             action_[1] = distr2(gen_);          // action for 'smoother'
-            action_[2] = distr3(gen_);          // action for 'nCellsInCoarsestLevel'
+            action_[2] = distr3(gen_);          // action for 'nFinestSweeps'
         }
 
         else
@@ -373,9 +373,9 @@ void Foam::functionObjects::agentSolverSettings::predictSettings()
                 action_[0] = 1;
             }
 
-            // take the smoother and nCellsInCoarsestLevel which have the highest probabilities
+            // take the smoother and nFinestSweeps which have the highest probabilities
             action_[1] = torch::argmax(torch::tensor(input_smoother)).item<int>();
-            action_[2] = torch::argmax(torch::tensor(input_nCellsInCoarsestLevel)).item<int>();
+            action_[2] = torch::argmax(torch::tensor(input_nFinestSweeps)).item<int>();
         }
 
         // save the policy output, the execution time per time step is logged using the 'timeInfo' function object
@@ -405,17 +405,17 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
         std::vector<word> smoother = {"FDIC", "DIC", "DICGaussSeidel", "symGaussSeidel", "nonBlockingGaussSeidel",
                                       "GaussSeidel"};
 
-        std::vector<word> nCellsInCoarsestLevel;
-        for (label n=10; n <= 250; n+=10)
+        std::vector<word> nFinestSweeps;
+        for (label n=1; n <= 10; n++)
         {
-            nCellsInCoarsestLevel.push_back(Foam::name(n));
+            nFinestSweeps.push_back(Foam::name(n));
         }
 
         // print the new settings to log file
         Info << "\t\t\t\t\t\tNew GAMG settings: \n\t\t\t\t\t\t------------------\n\t\t\t\t\t\t\t"
              << "'interpolateCorrection' = " << interpolateCorrection << "\n\t\t\t\t\t\t\t"
              << "'smoother'              = " << smoother[action_[1]] << "\n\t\t\t\t\t\t\t"
-             << "'nCellsInCoarsestLevel' = " << nCellsInCoarsestLevel[action_[2]] << "\n\n" << endl;
+             << "'nFinestSweeps'         = " << nFinestSweeps[action_[2]] << "\n\n" << endl;
 
         /* --------------------------------   NOT WORKING YET   -------------------------------
         // taken from Tomislav Maric (line 135, 136):
@@ -480,7 +480,7 @@ void Foam::functionObjects::agentSolverSettings::modifySolverSettingsDict(const 
                                              "\t\ttolerance \t" + Foam::name(tol) + ";\n"
                                              "\t\trelTol \t" + Foam::name(relTol) + ";\n"
                                              "\t\tinterpolateCorrection \t" + interpolateCorrection + ";\n"
-                                             "\t\tnCellsInCoarsestLevel \t" + nCellsInCoarsestLevel[action_[2]] + ";\n"
+                                             "\t\tnFinestSweeps \t" + nFinestSweeps[action_[2]] + ";\n"
                                      "\t}\n";
         // update the fvSolution file
         writeFvSolutionFile(solverSettings, fieldName, 6);

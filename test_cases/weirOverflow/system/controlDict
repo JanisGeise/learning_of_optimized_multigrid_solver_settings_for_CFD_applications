@@ -67,6 +67,12 @@ functions{
             policy          "policy.pt";
             train           false;
             seed            0;
+            /*
+            executeControl      timeStep;
+            executeInterval     5;
+            writeControl        timeStep;
+            writeInterval       5;
+            */
     }
 
     // log the execution time per time step for reward function
@@ -76,6 +82,12 @@ functions{
         libs            (utilityFunctionObjects);
         timeStart       0;
         perTimeStep     yes;
+        /*
+        executeControl      timeStep;
+        executeInterval     5;
+        writeControl        timeStep;
+        writeInterval       5;
+        */
     }
 
     probes

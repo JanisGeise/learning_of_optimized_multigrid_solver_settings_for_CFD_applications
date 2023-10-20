@@ -15,6 +15,7 @@ from typing import Union
 from os.path import join
 from os import path, makedirs
 from pandas import read_csv, DataFrame
+from scipy.ndimage import gaussian_filter1d
 
 from post_processing.get_residuals_from_log import get_GAMG_residuals, map_keys_to_labels
 
@@ -91,10 +92,10 @@ def load_trajectory(load_dir: str) -> pt.Tensor or None:
         # in case we have a policy where 'nCellsInCoarsestLevel' is present, remove the probs and convert the action to
         # a number (otherwise plot is not clear due to too many lines)
         if " action2" in tr:
-            tr.drop(columns=[f" prob{i}" for i in range(7, 32)], inplace=True)
+            tr.drop(columns=[f" prob{i}" for i in range(7, 17)], inplace=True)
 
-            # convert the action to the corresponding 'nCellsInCoarsestLevel'
-            classes = pt.arange(10, 260, 10)
+            # convert the action to the corresponding 'nFinestSweeps'
+            classes = pt.arange(1, 11, 1)
             n_cells = classes[tr[" action2"]]
             tr["n_cells"] = n_cells
             tr.drop(columns=[" action2"], inplace=True)
@@ -184,7 +185,7 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
     return out_dict
 
 
-def plot_nCellsInCoarsestLevel(n_cells: list, times: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
+def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
     # use default color cycle
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
@@ -204,11 +205,11 @@ def plot_nCellsInCoarsestLevel(n_cells: list, times: list, save_dir: str, sf: fl
             continue
         set_label = True
     ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
-    ax.set_ylabel(r"$nCellsInCoarsestLevel$", fontsize=13)
+    ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
     fig.subplots_adjust(top=0.9)
-    plt.savefig(join(save_dir, f"nCellsInCoarsestLevel.png"), dpi=340)
+    plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
@@ -322,7 +323,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
             # loop over all available probabilities
             for j in range(p.size()[1]):
                 if not set_legend:
-                    ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j], label=label[j])
+                    ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j], label=label[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
                     if counter == 0 and j == 0:
@@ -330,7 +331,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
                     else:
                         ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
                 else:
-                    ax[counter].plot(time_steps[i] / sf, p[:, j], color=color[j])
+                    ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
                     ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
@@ -379,10 +380,11 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
         for col in range(2):
             for r in range(len(residuals)):
                 if col == 0 and row == 0:
-                    ax[row][col].plot(residuals[r]["time"] / sf, residuals[r][keys[counter]],
+                    ax[row][col].plot(residuals[r]["time"] / sf, gaussian_filter1d(residuals[r][keys[counter]], 5),
                                       label=legend[r], color=color[r])
                 else:
-                    ax[row][col].plot(residuals[r]["time"] / sf, residuals[r][keys[counter]], color=color[r])
+                    ax[row][col].plot(residuals[r]["time"] / sf, gaussian_filter1d(residuals[r][keys[counter]], 5),
+                                      color=color[r])
 
             ax[row][col].set_ylabel(map_keys_to_labels(keys[counter]))
             ax[row][col].set_xlim(0, xmax)
@@ -404,25 +406,25 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nCellsInCoarsestLevel",
+    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nFinestSweeps",
                      "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
     cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
              # "DIC_local",
-             "random_policy", "trained_policy_b16_r8", "trained_policy_b32_r8"]
+             "random_policy", "trained_policy_b16", "trained_policy_b32"]
 
     # xticks for the plots
     xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
               # "$DIC$\n$(no$ $policy)$",
-              "$random$ $policy$", "$final$ $policy$\n$(b = 16, r = 8)$", "$final$ $policy$\n$(b = 32, r = 8)$"]
+              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 32)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = True
+    scale = False
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20
@@ -463,8 +465,8 @@ if __name__ == "__main__":
 
     # plot 'nCellsInCoarsestLevel' if it is available
     if results["n_cells"]:
-        plot_nCellsInCoarsestLevel(results["n_cells"], results["t"], save_dir=save_path, sf=factor,
-                                   legend=[i.replace("\n", " ") for i in xticks])
+        plot_nFinestSweeps(results["n_cells"], results["t"], save_dir=save_path, sf=factor,
+                           legend=[i.replace("\n", " ") for i in xticks])
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)

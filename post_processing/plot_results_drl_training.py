@@ -63,8 +63,8 @@ def load_rewards(load_dir: str) -> dict:
 
     # print out some info
     print(f"trajectory length for complete PPO-training (min. / max. / mean / 1 sigma / 3 sigma): "
-          f"{min(traj_len['min'])} / {max(traj_len['max'])} / {round(pt.mean(pt.tensor(traj_len['mean'])).item(), 3)}/"
-          f"{round(pt.std(pt.tensor(traj_len['mean'])).item(), 3)} / "
+          f"{min(traj_len['min'])} / {max(traj_len['max'])} / {round(pt.mean(pt.tensor(traj_len['mean'])).item(), 3)} /"
+          f" {round(pt.std(pt.tensor(traj_len['mean'])).item(), 3)} / "
           f"{round(3 * pt.std(pt.tensor(traj_len['mean'])).item(), 3)}")
 
     return obs_out
@@ -124,7 +124,7 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="lower left", framealpha=1.0, ncol=1)
+    ax[0].legend(loc="lower left", framealpha=1.0, ncol=2)
     fig.subplots_adjust(wspace=0.2)
     if median:
         plt.savefig(join(save_dir, "rewards_vs_episode_median.png"), dpi=340)
@@ -137,14 +137,15 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "combined_smoother_and_interpolateCorrection", "results_cylinder2D")
+    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nFinestSweeps",
+                     "results_cylinder2D")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e100_r10_b20_f0.8_new_features", "e100_r10_b30_f0.8_new_features_const_sampling"]
+    cases = ["e100_r16_b16_f0.8", "e100_r16_b32_f0.8"]
 
     # legend entries for the plots
-    legend = ["$b = 20$", "$b = 30,$ $const.$ $sampling$"]
+    legend = ["$b = 16$", "$b = 32$"]
 
     # create directory for plots
     if not path.exists(save_path):

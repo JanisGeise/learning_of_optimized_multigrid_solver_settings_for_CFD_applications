@@ -23,7 +23,7 @@ solvers
 		tolerance 	1e-07;
 		relTol 	    0.05;
         interpolateCorrection   no;
-        nCellsInCoarsestLevel   10;
+        nFinestSweeps   2;
 	}
 
     alpha.water

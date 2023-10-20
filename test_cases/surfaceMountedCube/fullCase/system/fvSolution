@@ -23,7 +23,7 @@ solvers
         relTol           0.01;
         smoother         DICGaussSeidel;
         interpolateCorrection   no;
-        nCellsInCoarsestLevel   10;
+        nFinestSweeps   2;
     }
 
     pFinal
