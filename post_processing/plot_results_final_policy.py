@@ -208,7 +208,7 @@ def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1,
     ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.9)
+    fig.subplots_adjust(top=0.86)
     plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -347,7 +347,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.86)
+    fig.subplots_adjust(top=0.92)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -397,7 +397,7 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.9)
+    fig.subplots_adjust(top=0.88)
     plt.savefig(join(save_dir, f"comparison_residuals.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -413,12 +413,15 @@ if __name__ == "__main__":
     # names of top-level directory containing the simulations run with different settings
     cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
              # "DIC_local",
-             "random_policy", "trained_policy_b16", "trained_policy_b32"]
+             "trained_policy_b16_PPO_every_2nd_dt_validation_every_dt",
+             "trained_policy_b16_PPO_every_2nd_dt_validation_every_dt_local",
+             "trained_policy_b16_PPO_every_10th_dt_validation_every_dt"]
 
     # xticks for the plots
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlocking$\n$GaussSeidel$\n$(no$ $policy)$",
               # "$DIC$\n$(no$ $policy)$",
-              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 32)$"]
+              "$final$ $policy$\n$(2$ $\Delta t, HPC)$", "$final$ $policy$\n$(2$ $\Delta t, local)$",
+              "$final$ $policy$\n$(10$ $\Delta t, HPC)$", "$final$ $policy$\n$(10$ $\Delta t, local)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -441,9 +444,12 @@ if __name__ == "__main__":
 
     results = get_mean_and_std_exec_time(load_path, cases)
 
-    # don't plot probabilities of actions or 'nCellsInCoarsestLevel' for random policy
-    results["mean_probs"][cases.index("random_policy")] = None
-    results["n_cells"][cases.index("random_policy")] = None
+    # don't plot probabilities of actions or 'nCellsInCoarsestLevel' for random policy incase we have any
+    try:
+        results["mean_probs"][cases.index("random_policy")] = None
+        results["n_cells"][cases.index("random_policy")] = None
+    except ValueError:
+        pass
 
     # plot the properties of the residuals wrt time step and case,replace all new lines in the legend with spaces if
     # present, because otherwise the legend is too big
@@ -457,6 +463,11 @@ if __name__ == "__main__":
     plot_avg_exec_times_final_policy(results, keys=["mean_n_dt", "std_n_dt"], ylabel=r"$N_{\Delta t}$",
                                      save_dir=save_path, scale_wrt_default=scale, default=default_idx,
                                      save_name="mean_n_dt", xlabels=xticks)
+
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
+              # "$DIC$\n$(no$ $policy)$",
+              "$final$ $policy$\n$(2$ $\Delta t, HPC)$", "$final$ $policy$\n$(2$ $\Delta t, local)$",
+              "$final$ $policy$\n$(10$ $\Delta t, HPC)$", "$final$ $policy$\n$(10$ $\Delta t, local)$"]
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
     plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,

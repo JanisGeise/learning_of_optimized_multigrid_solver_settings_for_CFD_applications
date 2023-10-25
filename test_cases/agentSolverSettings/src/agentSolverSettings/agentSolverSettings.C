@@ -33,6 +33,7 @@ License
 #include "zeroGradientFvPatchField.H"
 #include "dictionary.H"
 #include "IOdictionary.H"
+#include <chrono>
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -236,6 +237,8 @@ bool Foam::functionObjects::agentSolverSettings::execute()
         FatalErrorInFunction << "[agentSolverSettings]: Found more than one field! Make sure to only specify one "
                                 "pressure field in the controlDict. \n" << exit(FatalError);
     }
+    // start timer in order to time the execution timme of this function object
+    auto t_start = std::chrono::high_resolution_clock::now();
 
     // get the field name, e.g. 'p' or 'p_rgh'; there should be only one field available
     const word& fieldName = fieldSet_.begin() -> name();
@@ -297,6 +300,12 @@ bool Foam::functionObjects::agentSolverSettings::execute()
     // compare: https://www.openfoam.com/documentation/guides/latest/api/Time_8C_source.html#l00879, line 908 / 929
     // and https://www.openfoam.com/documentation/guides/latest/api/classFoam_1_1Time.html#a6cde1928adb66791e09902caf9ce29fa
     const_cast<Time&>(fvMeshFunctionObject::mesh_.time()).readModifiedObjects();
+
+    // write duration to solver's log file
+    Info << "\n[agentSolverSettings]: execution time of function object was " <<
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t_start).count()
+            << "microseconds\n" << endl;
+
 
     return true;
 }

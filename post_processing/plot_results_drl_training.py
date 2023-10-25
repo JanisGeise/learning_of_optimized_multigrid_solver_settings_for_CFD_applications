@@ -114,18 +114,15 @@ def plot_rewards_vs_episode(reward_mean: Union[list, pt.Tensor], reward_std: Uni
                     ax[i].set_ylabel(r"$\mu(r)$")
 
             else:
-                if legend_list:
-                    ax[i].plot(range(len(reward_std[c])), reward_std[c], color=color[c], label=legend_list[c])
-                else:
-                    ax[i].plot(range(len(reward_std[c])), reward_std[c], color=color[c], label=f"case {c}")
+                ax[i].plot(range(len(reward_std[c])), reward_std[c], color=color[c])
                 ax[i].set_ylabel(r"$\sigma(r)$")
 
             ax[i].set_xlim(0, max([len(i) for i in reward_mean]))
 
     ax[1].set_xlabel("$e$")
     fig.tight_layout()
-    ax[0].legend(loc="lower left", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(wspace=0.2)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=2)
+    fig.subplots_adjust(top=0.86, wspace=0.2)
     if median:
         plt.savefig(join(save_dir, "rewards_vs_episode_median.png"), dpi=340)
     else:
@@ -142,10 +139,12 @@ if __name__ == "__main__":
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the PPO-trainings
-    cases = ["e100_r16_b16_f0.8", "e100_r16_b32_f0.8"]
+    cases = ["e100_r16_b16_f0.8_every_2nd_dt", "e120_r1_b16_f0.8_every_2nd_dt_local",
+             "e100_r16_b16_f0.8_every_10th_dt", "e120_r1_b16_f0.8_every_10th_dt_local"]
 
     # legend entries for the plots
-    legend = ["$b = 16$", "$b = 32$"]
+    legend = ["$b = 16$ $(2$ $\Delta t, HPC)$", "$b = 16$ $(2$ $\Delta t, local)$", "$b = 16$ $(10$ $\Delta t, HPC)$",
+              "$b = 16$ $(10$ $\Delta t, local)$"]
 
     # create directory for plots
     if not path.exists(save_path):
