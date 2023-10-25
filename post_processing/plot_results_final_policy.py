@@ -427,7 +427,7 @@ if __name__ == "__main__":
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = False
+    scale = True
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20
@@ -463,11 +463,6 @@ if __name__ == "__main__":
     plot_avg_exec_times_final_policy(results, keys=["mean_n_dt", "std_n_dt"], ylabel=r"$N_{\Delta t}$",
                                      save_dir=save_path, scale_wrt_default=scale, default=default_idx,
                                      save_name="mean_n_dt", xlabels=xticks)
-
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
-              # "$DIC$\n$(no$ $policy)$",
-              "$final$ $policy$\n$(2$ $\Delta t, HPC)$", "$final$ $policy$\n$(2$ $\Delta t, local)$",
-              "$final$ $policy$\n$(10$ $\Delta t, HPC)$", "$final$ $policy$\n$(10$ $\Delta t, local)$"]
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
     plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
