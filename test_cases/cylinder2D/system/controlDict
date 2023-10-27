@@ -51,32 +51,20 @@ functions
         {
             type            agentSolverSettings;
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
-            timeStart       0;
+            timeStart       0;              // set to t > t_end for deactivation of policy
             fields          (p);
-            policy          "policy.pt";
+            policy          "trained_policy.pt";
             train           false;
             seed            0;
-            /*
-            executeControl      timeStep;
-            executeInterval     5;
-            writeControl        timeStep;
-            writeInterval       5;
-            */
     }
 
-    // log the execution time per time step for reward function
+    // log the execution time per time step for reward function (in drlfoam) and post-processing
     time
     {
         type            timeInfo;
         libs            (utilityFunctionObjects);
         timeStart       0;
         perTimeStep     yes;
-        /*
-        executeControl      timeStep;
-        executeInterval     5;
-        writeControl        timeStep;
-        writeInterval       5;
-        */
     }
 
     forces

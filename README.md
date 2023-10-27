@@ -30,9 +30,9 @@ cases can be found under:
 
     `$FOAM_TUTORIALS/incompressible/pimpleFoam/laminar/`
 
-The policies in each simulation directory (`policy.pt`) of the test cases is a randomly initialized policy unsing the
-`create_dummy_policy.py` script within [drlfoam](https://github.com/JanisGeise/drlfoam/tree/solver_settings). These
-policies will be replaced with trained ones once the DRL_training routine is completed.
+The policy `random_policy.pt` in each simulation directory of the `test_cases` directory is a randomly initialized 
+policy created by using the `create_dummy_policy.py` script within [drlfoam](https://github.com/JanisGeise/drlfoam/tree/solver_settings).
+The policy `trained_policy.pt` denotes a trained policy, which is already included in the `controlDict` as well.
 
 ### Run simulations locally
 

@@ -55,9 +55,21 @@ maxDeltaT       1;
 
 // ************************************************************************* //
 
-functions{
+functions
+{
+    // function object for computing the states and actions in order to predict the solver settings for GAMG
+    residuals
+        {
+            type            agentSolverSettings;
+            libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
+            timeStart       0;              // set to t > t_end for deactivation of policy
+            fields          (p_rgh);
+            policy          "policy.pt";
+            train           false;
+            seed            0;
+    }
 
-    // log the execution time per time step for reward function
+    // log the execution time per time step for reward function (in drlfoam) and post-processing
     time
     {
         type            timeInfo;
