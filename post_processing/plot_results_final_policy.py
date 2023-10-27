@@ -18,6 +18,7 @@ from pandas import read_csv, DataFrame
 from scipy.ndimage import gaussian_filter1d
 
 from post_processing.get_residuals_from_log import get_GAMG_residuals, map_keys_to_labels
+from post_processing.plot_execution_time_of_function_object import get_execution_time
 
 
 def load_cpu_times(case_path: str) -> DataFrame:
@@ -124,12 +125,14 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
                 "std_n_dt": [], "mean_probs": []}
 
     for s in simulations:
-        tmp, traj_tmp = [], []
+        tmp, traj_tmp, t_FO_tmp = [], [], []
 
         # for each case glob all runs, so we can compute the avg. runtimes etc.
         for i, case in enumerate(glob(join(load_dir, s, "*"))):
             tmp.append(load_cpu_times(join(case, "postProcessing", "time", "0", "timeInfo.dat")))
             traj_tmp.append(load_trajectory(join(case, "trajectory.txt")))
+            # load the execution time of the function object
+            t_FO_tmp.append(pt.tensor(get_execution_time(case)).sum())
 
         # sort the results from each case into a dict, assuming we ran multiple cases for each config.
         for key in list(tmp[0].keys()) + ["n_dt", "probs"]:
@@ -137,8 +140,10 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
                 # all time steps per settings are the same, so just take the 1st one
                 out_dict[key].append(tmp[0][key])
             elif key == "t_exec":
-                # the total execution time (CPU) is the last value of t_exec (at last time step)
-                final_t_exec = pt.cat([pt.from_numpy(i[key].values)[-1].unsqueeze(-1) for i in tmp])
+                # the total execution time (CPU) is the last value of t_exec (at last time step), subtract the execution
+                # time of the function object first -> only exec time of the actual simulation
+                final_t_exec = pt.cat([pt.from_numpy(t[key].values)[-1].unsqueeze(-1) - t_FO_tmp[i] for i, t in
+                                       enumerate(tmp)])
                 out_dict[f"mean_{key}"].append(pt.mean(final_t_exec))
                 out_dict[f"std_{key}"].append(pt.std(final_t_exec))
 
@@ -192,7 +197,7 @@ def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1,
     # in case no legend is given, use empty strings
     legend = len(n_cells) * [""] if legend is None else legend
 
-    fig, ax = plt.subplots(figsize=(7, 4))
+    fig, ax = plt.subplots(figsize=(7, 3))
     set_label = False
     for c in range(len(n_cells)):
         if n_cells[c] is not None:
@@ -208,7 +213,7 @@ def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1,
     ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.86)
+    fig.subplots_adjust(top=0.88)
     plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -236,9 +241,15 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     """
 
     if ylabel is None and scale_wrt_default:
-        ylabel = r"$t^*_{exec}$"
+        if data[keys[1]][0] == 0:
+            ylabel = r"$t^*_{exec}$"
+        else:
+            ylabel = [r"$\mu(t^*_{exec})$", r"$\sigma(t^*_{exec})$"]
     elif ylabel is None and not scale_wrt_default:
-        ylabel = r"$t_{exec}$   $[s]$"
+        if data[keys[1]][0] == 0:
+            ylabel = r"$t_{exec}$   $[s]$"
+        else:
+            ylabel = [r"$\mu(t_{exec})$   $[s]$", r"$\sigma(t_{exec})$   $[s]$"]
     else:
         pass
 
@@ -248,31 +259,52 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     # use default color cycle
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    # if we don't have a std. deviation don't plot it
+    if data[keys[1]][0] == 0:
+        fig, ax = plt.subplots(figsize=(8, 4))
+    else:
+        fig, ax = plt.subplots(nrows=2, figsize=(8, 4), sharex="col")
+
     for i, r in enumerate(zip(data[keys[0]], data[keys[1]])):
         # scale all execution times with the execution time of the default settings
         if scale_wrt_default:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
             if r[1] == 0:
-                ax.scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", alpha=1, color=color[i])
+                ax.scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", zorder=10, color=color[i])
+                ax.set_ylabel(ylabel, fontsize=13)
             else:
-                ax.errorbar(xlabels[i], r[0] / data[keys[0]][default], yerr=r[1] / data[keys[1]][default],
-                            barsabove=True, fmt="o", capsize=5, color=color[i])
-            ax.set_ylabel(ylabel, fontsize=13)
+                # plot mean
+                ax[0].scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", zorder=10, color=color[i])
+                # plot std. deviation
+                ax[1].scatter(xlabels[i], r[1] / data[keys[1]][default], marker="o", zorder=10, color=color[i])
+                ax[0].set_ylabel(ylabel[0], fontsize=13)
+                ax[1].set_ylabel(ylabel[1], fontsize=13)
 
         # no scaling
         else:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
             if r[1] == 0:
-                ax.scatter(xlabels[i], r[0], marker="o", alpha=1, color=color[i], facecolors=color[i])
+                ax.scatter(xlabels[i], r[0], marker="o", color=color[i], zorder=10, facecolors=color[i])
+                ax.set_ylabel(ylabel, fontsize=13)
             else:
-                ax.errorbar(xlabels[i], r[0], yerr=r[1], barsabove=True, fmt="o", capsize=5, color=color[i])
-            ax.set_ylabel(ylabel, fontsize=13)
+                ax[0].scatter(xlabels[i], r[0], marker="o", zorder=10, color=color[i])
+                ax[1].scatter(xlabels[i], r[1], marker="o", zorder=10, color=color[i])
+                ax[0].set_ylabel(ylabel[0], fontsize=13)
+                ax[1].set_ylabel(ylabel[1], fontsize=13)
     fig.tight_layout()
-    ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
-    ax.minorticks_on()
-    ax.tick_params(axis="x", which="minor", bottom=False)
-    ax.grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
+
+    if data[keys[1]][0] == 0:
+        ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
+        ax.minorticks_on()
+        ax.tick_params(axis="x", which="minor", bottom=False)
+        ax.grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
+    else:
+        for a in range(2):
+            ax[a].grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
+            ax[a].minorticks_on()
+            ax[a].tick_params(axis="x", which="minor", bottom=False)
+            ax[a].grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
+
     if scale_wrt_default:
         plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     else:
@@ -314,7 +346,6 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
 
     fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
-
     for i, p in enumerate(probs):
         # reset color cycle for each case, so that all probs have the same color
         color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
@@ -347,7 +378,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.92)
+    fig.subplots_adjust(top=0.88)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -413,21 +444,18 @@ if __name__ == "__main__":
     # names of top-level directory containing the simulations run with different settings
     cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
              # "DIC_local",
-             "trained_policy_b16_PPO_every_2nd_dt_validation_every_dt",
-             "trained_policy_b16_PPO_every_2nd_dt_validation_every_dt_local",
-             "trained_policy_b16_PPO_every_10th_dt_validation_every_dt"]
+             "random_policy", "trained_policy_b16", "trained_policy_b32"]
 
     # xticks for the plots
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlocking$\n$GaussSeidel$\n$(no$ $policy)$",
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
               # "$DIC$\n$(no$ $policy)$",
-              "$final$ $policy$\n$(2$ $\Delta t, HPC)$", "$final$ $policy$\n$(2$ $\Delta t, local)$",
-              "$final$ $policy$\n$(10$ $\Delta t, HPC)$", "$final$ $policy$\n$(10$ $\Delta t, local)$"]
+              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 32)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = True
+    scale = False
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
     factor = 1 / 20

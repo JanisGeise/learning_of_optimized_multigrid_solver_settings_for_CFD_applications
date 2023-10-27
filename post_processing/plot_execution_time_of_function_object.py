@@ -10,7 +10,6 @@ from os.path import join
 
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
-from torch.fft import fftfreq, fft
 
 
 def get_execution_time(load_dir: str) -> list:
@@ -18,14 +17,12 @@ def get_execution_time(load_dir: str) -> list:
         data = file.readlines()
 
     # line we are looking for looks like this: '[agentSolverSettings]: execution time of function object was 43228ms'
+    # * 1e-6 in order to convert to seconds
     key = "[agentSolverSettings]: execution time of function object was"
-    exec_times = [float(line.split(" ")[-1].strip("ms\n")) for line in data if line.startswith(key)]
+    exec_times = [float(line.split(" ")[-1].strip("ms\n")) * 1e-6 for line in data if line.startswith(key)]
 
-    return exec_times
-
-
-def fft(residual, n):
-    pass
+    # in case the simulation didn't use a policy return zero since later we subtract this time from the execution time
+    return exec_times if exec_times else [0]
 
 
 if __name__ == "__main__":
@@ -48,18 +45,18 @@ if __name__ == "__main__":
     # compute mean, std. deviation and sum of execution times (exec times are measured in microseconds)
     execution_times = pt.tensor(execution_times)
     print(f"Found {execution_times.size()[0]} cases. Execution times (mean per dt / 1 sigma per dt / avg. sum total /"
-          f" 1 sigma sum total):\t{round(execution_times.mean().item() * 1e-6, 6)} s / "
-          f"{round(execution_times.std().item() * 1e-6, 6)} s / "
-          f"{round(execution_times.sum(dim=1).mean().item() * 1e-6, 3)} s /"
-          f" {round(execution_times.sum(dim=1).std().item() * 1e-6, 3)} s")
+          f" 1 sigma sum total):\t{round(execution_times.mean().item(), 6)} s / "
+          f"{round(execution_times.std().item(), 6)} s / "
+          f"{round(execution_times.sum(dim=1).mean().item(), 3)} s /"
+          f" {round(execution_times.sum(dim=1).std().item(), 3)} s")
 
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
 
     # plot the mean and std. deviation of execution times wrt dt
     fig, ax = plt.subplots(figsize=(6, 3))
-    ax.plot(range(execution_times.size()[1]), execution_times.mean(dim=0) * 1e-6, color="black",
-            label=r"$\mu(t_{exec})$, $\sum t_{exec} =$ $"+str(round(execution_times.sum(dim=1).mean().item() * 1e-6, 2))
+    ax.plot(range(execution_times.size()[1]), execution_times.mean(dim=0), color="black",
+            label=r"$\mu(t_{exec})$, $\sum t_{exec} =$ $"+str(round(execution_times.sum(dim=1).mean().item(), 2))
                   + "$ $s$")
     ax.set_xlabel(r"$\Delta t$ $no.$ $\#$")
     ax.set_ylabel("$t$   $[s]$")
@@ -70,9 +67,10 @@ if __name__ == "__main__":
     plt.pause(2)
     plt.close("all")
 
+    """    
     # do Fourier analysis (const. dt only)
     dt = 5.0e-5
-    data = [signal.welch(execution_times[e, :] * 1e-6, 1/dt, nperseg=int(execution_times.size()[1] * 0.5),
+    data = [signal.welch(execution_times[e, :], 1/dt, nperseg=int(execution_times.size()[1] * 0.5),
                          nfft=execution_times.size()[1]) for e in range(execution_times.size()[0])]
 
     fig, ax = plt.subplots(figsize=(6, 3))
@@ -88,3 +86,4 @@ if __name__ == "__main__":
     plt.show(block=False)
     plt.pause(2)
     plt.close("all")
+    """
