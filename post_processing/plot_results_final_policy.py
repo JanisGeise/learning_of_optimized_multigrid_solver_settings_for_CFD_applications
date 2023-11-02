@@ -213,7 +213,7 @@ def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1,
     ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.88)
+    fig.subplots_adjust(top=0.82)
     plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -261,7 +261,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
 
     # if we don't have a std. deviation don't plot it
     if data[keys[1]][0] == 0:
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(8, 2))
     else:
         fig, ax = plt.subplots(nrows=2, figsize=(8, 4), sharex="col")
 
@@ -345,7 +345,11 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsfonts}"})
 
-    fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
+    if n_traj == 1:
+        fig, ax = plt.subplots(figsize=(8, 3))
+    else:
+        fig, ax = plt.subplots(nrows=n_traj, figsize=(8, 3*n_traj), sharey="col", sharex="col")
+
     for i, p in enumerate(probs):
         # reset color cycle for each case, so that all probs have the same color
         color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
@@ -354,31 +358,54 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
             # loop over all available probabilities
             for j in range(p.size()[1]):
                 if not set_legend:
-                    ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j], label=label[j])
+                    if n_traj == 1:
+                        ax.plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j], label=label[j])
+                    else:
+                        ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j],
+                                         label=label[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
                     if counter == 0 and j == 0:
-                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                        if n_traj == 1:
+                            ax.hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                        else:
+                            ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
                     else:
-                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+                        if n_traj == 1:
+                            ax.hlines(0.5, 0, xmax, color="red", ls="-.")
+                        else:
+                            ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
                 else:
-                    ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
+                    if n_traj == 1:
+                        ax.plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
+                        ax.hlines(0.5, 0, xmax, color="red", ls="-.")
+                    else:
+                        ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
 
-                    # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
-                    ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+                        # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
+                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
 
-                ax[counter].set_xlim(0, xmax)
-                ax[counter].set_yscale("log")
-                ax[counter].set_ylabel(r"$\mathbb{P}$", fontsize=13)
-                ax[counter].annotate(legend[i], xy=(xmax + xmax * 0.025, 0.5), fontsize=13,
-                                     xycoords=ax[counter].get_xaxis_transform())
+                if n_traj == 1:
+                    ax.set_xlim(0, xmax)
+                    ax.set_yscale("log")
+                    ax.set_ylabel(r"$\mathbb{P}$", fontsize=13)
+                    ax.annotate(legend[i], xy=(xmax + xmax * 0.025, 0.5), fontsize=13,
+                                xycoords=ax.get_xaxis_transform())
+                else:
+                    ax[counter].set_xlim(0, xmax)
+                    ax[counter].set_yscale("log")
+                    ax[counter].set_ylabel(r"$\mathbb{P}$", fontsize=13)
+                    ax[counter].annotate(legend[i], xy=(xmax + xmax * 0.025, 0.5), fontsize=13,
+                                         xycoords=ax[counter].get_xaxis_transform())
             counter += 1
             set_legend = True
-
-    ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
+    if n_traj == 1:
+        ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
+    else:
+        ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.88)
+    fig.subplots_adjust(top=0.92)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -438,30 +465,34 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 if __name__ == "__main__":
     # main path to all the cases and save path
     load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nFinestSweeps",
-                     "results_cylinder2D")
+                     "results_weirOverflow")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_local",
-             # "DIC_local",
-             "random_policy", "trained_policy_b16", "trained_policy_b32"]
+    cases = ["default_settings_no_policy",  # "nonBlockingGaussSeidel_local",
+             "DIC_local",
+             "trained_policy_b20_PPO_every_2nd_dt_validation_every_dt",
+             "trained_policy_b20_PPO_every_2nd_dt_validation_every_dt_local",
+             "trained_policy_b20_PPO_every_10th_dt_validation_every_dt",
+             "trained_policy_b20_PPO_every_10th_dt_validation_every_dt_local"]
 
     # xticks for the plots
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
-              # "$DIC$\n$(no$ $policy)$",
-              "$random$ $policy$", "$final$ $policy$\n$(b = 16)$", "$final$ $policy$\n$(b = 32)$"]
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$",   # "$nonBlocking$\n$GaussSeidel$\n$(no$ $policy)$",
+              "$DIC$\n$(no$ $policy)$",
+              "$final$ $policy$\n$(every$ $2 \Delta t, HPC)$", "$final$ $policy$\n$(every$ $2 \Delta t, local)$",
+              "$final$ $policy$\n$(every$ $10 \Delta t, HPC)$", "$final$ $policy$\n$(every$ $10 \Delta t, local)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
 
     # flag if the avg. execution time and corresponding std. deviation should be scaled wrt default setting
-    scale = False
+    scale = True
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
-    factor = 1 / 20
+    # factor = 1 / 20
 
     # factor for weirOverflow case
-    # factor = 1 / 0.4251
+    factor = 1 / 0.4251
 
     # create directory for plots
     if not path.exists(save_path):
@@ -493,9 +524,11 @@ if __name__ == "__main__":
                                      save_name="mean_n_dt", xlabels=xticks)
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
-    plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
-                       param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
-                              "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
+    # in case we have any
+    if any([False if i is None else True for i in results["mean_probs"]]):
+        plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
+                           param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
+                                  "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
 
     # plot 'nCellsInCoarsestLevel' if it is available
     if results["n_cells"]:
@@ -506,29 +539,48 @@ if __name__ == "__main__":
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
     min_n_dt = min([len(i) for i in results["t"]])
 
-    # plot the execution time wrt time step
-    fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")
+    # plot the execution time wrt time step, if we don't have an std. dev. because we didin't avg. over multiple runs,
+    # then only plot the avg. values TODO: check if correctly implemented
+    if results["std_t_per_dt"][0].sum() == 0:
+        fig, ax = plt.subplots(figsize=(6, 3))
+    else:
+        fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")
+
     for i, r in enumerate(zip(results["mean_t_per_dt"], results["std_t_per_dt"])):
         # scale all execution times with the execution time of the default settings
         if scale:
-            ax[0].scatter(results["t"][i][:min_n_dt] / factor,
-                          r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
-            ax[1].scatter(results["t"][i][:min_n_dt] / factor,
-                          r[1][:min_n_dt] / results["std_t_per_dt"][default_idx][:min_n_dt], marker=".")
-            ax[0].set_ylabel(r"$\mu{(t^*_{exec})}$", fontsize=13)
-            ax[1].set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)
-
+            if results["std_t_per_dt"][0].sum() == 0:
+                ax.scatter(results["t"][i][:min_n_dt] / factor,
+                           r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
+                ax.set_ylabel(r"$\mu{(t^*_{exec})}$", fontsize=13)
+                ax.set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)
+            else:
+                ax[0].scatter(results["t"][i][:min_n_dt] / factor,
+                              r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
+                ax[1].scatter(results["t"][i][:min_n_dt] / factor,
+                              r[1][:min_n_dt] / results["std_t_per_dt"][default_idx][:min_n_dt], marker=".")
+                ax[0].set_ylabel(r"$\mu{(t^*_{exec})}$", fontsize=13)
+                ax[1].set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)
         # no scaling
         else:
-            ax[0].scatter(results["t"][i][:min_n_dt] / factor, r[0][:min_n_dt], marker=".")
-            ax[1].scatter(results["t"][i][:min_n_dt] / factor, r[1][:min_n_dt], marker=".")
+            if results["std_t_per_dt"][0].sum() == 0:
+                ax.set_yscale("log")
+                ax.set_ylabel(r"$\mu{(t_{exec})}$   $[s]$", fontsize=13)
+                ax.scatter(results["t"][i][:min_n_dt] / factor, r[0][:min_n_dt], marker=".")
 
-            ax[0].set_ylabel(r"$\mu{(t_{exec})}$   $[s]$", fontsize=13)
-            ax[1].set_ylabel(r"$\sigma{(t_{exec})}$   $[s]$", fontsize=13)
-            ax[0].set_yscale("log")
-            ax[1].set_yscale("log")
+            else:
+                ax[0].scatter(results["t"][i][:min_n_dt] / factor, r[0][:min_n_dt], marker=".")
+                ax[1].scatter(results["t"][i][:min_n_dt] / factor, r[1][:min_n_dt], marker=".")
 
-    ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
+                ax[0].set_ylabel(r"$\mu{(t_{exec})}$   $[s]$", fontsize=13)
+                ax[1].set_ylabel(r"$\sigma{(t_{exec})}$   $[s]$", fontsize=13)
+                ax[0].set_yscale("log")
+                ax[1].set_yscale("log")
+
+    if results["std_t_per_dt"][0].sum() == 0:
+        ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
+    else:
+        ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
 
     # replace all new lines in the legend with spaces if present, because otherwise the legend is too big

@@ -64,7 +64,7 @@ functions
             libs            ("${DRL_LIBBIN}/libAgentSolverSettings.so");
             timeStart       0;              // set to t > t_end for deactivation of policy
             fields          (p_rgh);
-            policy          "policy.pt";
+            policy          "trained_policy.pt";
             train           false;
             seed            0;
     }
