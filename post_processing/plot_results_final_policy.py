@@ -97,8 +97,8 @@ def load_trajectory(load_dir: str) -> pt.Tensor or None:
 
             # convert the action to the corresponding 'nFinestSweeps'
             classes = pt.arange(1, 11, 1)
-            n_cells = classes[tr[" action2"]]
-            tr["n_cells"] = n_cells
+            n_sweeps = classes[tr[" action2"]]
+            tr["n_finestSweeps"] = n_sweeps
             tr.drop(columns=[" action2"], inplace=True)
 
         # convert to tensor, so we can avg. etc. easier later
@@ -185,27 +185,28 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
             out_dict["mean_probs"][i] = o[:, :7]
         else:
             tmp.append(None)
-    out_dict["n_cells"] = tmp
+    out_dict["n_finestSweeps"] = tmp
 
     return out_dict
 
 
-def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
+def plot_nFinestSweeps(n_sweeps: list, times: list, save_dir: str, sf: float = 1, legend: list = None) -> None:
     # use default color cycle
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
     # in case no legend is given, use empty strings
-    legend = len(n_cells) * [""] if legend is None else legend
+    legend = len(n_sweeps) * [""] if legend is None else legend
 
     fig, ax = plt.subplots(figsize=(7, 3))
     set_label = False
-    for c in range(len(n_cells)):
-        if n_cells[c] is not None:
+    for c in range(len(n_sweeps)):
+        if n_sweeps[c] is not None:
             if not set_label:
-                ax.scatter(times[c] / sf, n_cells[c], color=color[c], label=legend[c], marker=".")
+                # convert to int, because number of sweeps is an int
+                ax.scatter(times[c] / sf, n_sweeps[c].int(), color=color[c], label=legend[c], marker=".")
                 continue
             else:
-                ax.scatter(times[c] / sf, n_cells[c], color=color[c], marker=".")
+                ax.scatter(times[c] / sf, n_sweeps[c].int(), color=color[c], marker=".")
         else:
             continue
         set_label = True
@@ -213,7 +214,7 @@ def plot_nFinestSweeps(n_cells: list, times: list, save_dir: str, sf: float = 1,
     ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.82)
+    fig.subplots_adjust(top=0.84)
     plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -224,7 +225,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
                                      default: int = None, save_name: str = "mean_execution_times", ylabel: str = None,
                                      scale_wrt_default: bool = True, xlabels: list = None) -> None:
     """
-    create an errorbar plot for the execution times (or other quantities). If the std. deviation of a case is zero,
+    create a plot for the execution times (or other quantities). If the std. deviation of a case is zero,
     then the case is plotted as scatter plot. If 'scale_wrt_default' is set to 'True', but no index of the default
     setting is passed, then 'scale_wrt_default' will be set to 'False' the absolute times (or other quantities) are
     plotted.
@@ -241,12 +242,12 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     """
 
     if ylabel is None and scale_wrt_default:
-        if data[keys[1]][0] == 0:
+        if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
             ylabel = r"$t^*_{exec}$"
         else:
             ylabel = [r"$\mu(t^*_{exec})$", r"$\sigma(t^*_{exec})$"]
     elif ylabel is None and not scale_wrt_default:
-        if data[keys[1]][0] == 0:
+        if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
             ylabel = r"$t_{exec}$   $[s]$"
         else:
             ylabel = [r"$\mu(t_{exec})$   $[s]$", r"$\sigma(t_{exec})$   $[s]$"]
@@ -260,7 +261,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
     # if we don't have a std. deviation don't plot it
-    if data[keys[1]][0] == 0:
+    if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
         fig, ax = plt.subplots(figsize=(8, 2))
     else:
         fig, ax = plt.subplots(nrows=2, figsize=(8, 4), sharex="col")
@@ -269,7 +270,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
         # scale all execution times with the execution time of the default settings
         if scale_wrt_default:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
-            if r[1] == 0:
+            if r[1] == 0 or r[1].isnan():
                 ax.scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", zorder=10, color=color[i])
                 ax.set_ylabel(ylabel, fontsize=13)
             else:
@@ -283,7 +284,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
         # no scaling
         else:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
-            if r[1] == 0:
+            if r[1] == 0 or r[1].isnan():
                 ax.scatter(xlabels[i], r[0], marker="o", color=color[i], zorder=10, facecolors=color[i])
                 ax.set_ylabel(ylabel, fontsize=13)
             else:
@@ -293,7 +294,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
                 ax[1].set_ylabel(ylabel[1], fontsize=13)
     fig.tight_layout()
 
-    if data[keys[1]][0] == 0:
+    if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
         ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
         ax.minorticks_on()
         ax.tick_params(axis="x", which="minor", bottom=False)
@@ -405,7 +406,7 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
         ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.92)
+    fig.subplots_adjust(top=0.85)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -455,7 +456,7 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.88)
+    fig.subplots_adjust(top=0.92)
     plt.savefig(join(save_dir, f"comparison_residuals.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -464,23 +465,16 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nFinestSweeps",
-                     "results_weirOverflow")
+    load_path = join("..", "run", "validation_best_policy", "results_cylinder2D_4domains")
     save_path = join(load_path, "plots")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["default_settings_no_policy",  # "nonBlockingGaussSeidel_local",
-             "DIC_local",
-             "trained_policy_b20_PPO_every_2nd_dt_validation_every_dt",
-             "trained_policy_b20_PPO_every_2nd_dt_validation_every_dt_local",
-             "trained_policy_b20_PPO_every_10th_dt_validation_every_dt",
-             "trained_policy_b20_PPO_every_10th_dt_validation_every_dt_local"]
+    cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_no_policy",
+             "trained_policy_best_policy", "trained_policy_2domains"]
 
     # xticks for the plots
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$",   # "$nonBlocking$\n$GaussSeidel$\n$(no$ $policy)$",
-              "$DIC$\n$(no$ $policy)$",
-              "$final$ $policy$\n$(every$ $2 \Delta t, HPC)$", "$final$ $policy$\n$(every$ $2 \Delta t, local)$",
-              "$final$ $policy$\n$(every$ $10 \Delta t, HPC)$", "$final$ $policy$\n$(every$ $10 \Delta t, local)$"]
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
+              "$final$ $policy$\n$(every$ $2 \Delta t)$", "$final$ $policy$\n$(2$ $subdomains)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -489,10 +483,10 @@ if __name__ == "__main__":
     scale = True
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
-    # factor = 1 / 20
+    factor = 1 / 20
 
     # factor for weirOverflow case
-    factor = 1 / 0.4251
+    # factor = 1 / 0.4251
 
     # create directory for plots
     if not path.exists(save_path):
@@ -506,7 +500,7 @@ if __name__ == "__main__":
     # don't plot probabilities of actions or 'nCellsInCoarsestLevel' for random policy incase we have any
     try:
         results["mean_probs"][cases.index("random_policy")] = None
-        results["n_cells"][cases.index("random_policy")] = None
+        results["n_finestSweeps"][cases.index("random_policy")] = None
     except ValueError:
         pass
 
@@ -530,18 +524,18 @@ if __name__ == "__main__":
                            param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
                                   "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
 
-    # plot 'nCellsInCoarsestLevel' if it is available
-    if results["n_cells"]:
-        plot_nFinestSweeps(results["n_cells"], results["t"], save_dir=save_path, sf=factor,
+    # plot 'nFinestSweeps' if it is available
+    if any([False if i is None else True for i in results["n_finestSweeps"]]):
+        plot_nFinestSweeps(results["n_finestSweeps"], results["t"], save_dir=save_path, sf=factor,
                            legend=[i.replace("\n", " ") for i in xticks])
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
     min_n_dt = min([len(i) for i in results["t"]])
 
-    # plot the execution time wrt time step, if we don't have an std. dev. because we didin't avg. over multiple runs,
-    # then only plot the avg. values TODO: check if correctly implemented
-    if results["std_t_per_dt"][0].sum() == 0:
+    # plot the execution time wrt time step, if we don't have an std. dev. because we didn't avg. over multiple runs,
+    # then only plot the avg. values
+    if results["std_t_per_dt"][0].sum() == 0 or any(results["std_t_per_dt"][0].isnan()):
         fig, ax = plt.subplots(figsize=(6, 3))
     else:
         fig, ax = plt.subplots(nrows=2, figsize=(6, 6), sharex="col")
@@ -549,11 +543,10 @@ if __name__ == "__main__":
     for i, r in enumerate(zip(results["mean_t_per_dt"], results["std_t_per_dt"])):
         # scale all execution times with the execution time of the default settings
         if scale:
-            if results["std_t_per_dt"][0].sum() == 0:
+            if results["std_t_per_dt"][0].sum() == 0 or any(results["std_t_per_dt"][0].isnan()):
                 ax.scatter(results["t"][i][:min_n_dt] / factor,
                            r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
                 ax.set_ylabel(r"$\mu{(t^*_{exec})}$", fontsize=13)
-                ax.set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)
             else:
                 ax[0].scatter(results["t"][i][:min_n_dt] / factor,
                               r[0][:min_n_dt] / results["mean_t_per_dt"][default_idx][:min_n_dt], marker=".")
@@ -563,7 +556,7 @@ if __name__ == "__main__":
                 ax[1].set_ylabel(r"$\sigma{(t^*_{exec})}$", fontsize=13)
         # no scaling
         else:
-            if results["std_t_per_dt"][0].sum() == 0:
+            if results["std_t_per_dt"][0].sum() == 0 or any(results["std_t_per_dt"][0].isnan()):
                 ax.set_yscale("log")
                 ax.set_ylabel(r"$\mu{(t_{exec})}$   $[s]$", fontsize=13)
                 ax.scatter(results["t"][i][:min_n_dt] / factor, r[0][:min_n_dt], marker=".")
@@ -577,7 +570,7 @@ if __name__ == "__main__":
                 ax[0].set_yscale("log")
                 ax[1].set_yscale("log")
 
-    if results["std_t_per_dt"][0].sum() == 0:
+    if results["std_t_per_dt"][0].sum() == 0 or any(results["std_t_per_dt"][0].isnan()):
         ax.set_xlabel(r"$t \, / \, T$", fontsize=13)
     else:
         ax[1].set_xlabel(r"$t \, / \, T$", fontsize=13)
@@ -587,7 +580,7 @@ if __name__ == "__main__":
     xticks = [i.replace("\n", " ") for i in xticks]
 
     fig.legend(xticks, loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.86)
+    fig.subplots_adjust(top=0.87)
     if scale:
         plt.savefig(join(save_path, "execution_times_vs_dt.png"), dpi=340)
     else:

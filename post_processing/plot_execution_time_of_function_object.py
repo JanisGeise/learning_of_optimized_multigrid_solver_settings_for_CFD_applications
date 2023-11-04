@@ -16,10 +16,11 @@ def get_execution_time(load_dir: str) -> list:
     with open(glob(join(load_dir, f"log.*Foam"))[0], "r") as file:
         data = file.readlines()
 
-    # line we are looking for looks like this: '[agentSolverSettings]: execution time of function object was 43228ms'
+    # line we are looking for looks like this: '[agentSolverSettings]: execution time of function object was
+    # 43228microseconds'
     # * 1e-6 in order to convert to seconds
     key = "[agentSolverSettings]: execution time of function object was"
-    exec_times = [float(line.split(" ")[-1].strip("ms\n")) * 1e-6 for line in data if line.startswith(key)]
+    exec_times = [float(line.split(" ")[-1].strip("microseconds\n")) * 1e-6 for line in data if line.startswith(key)]
 
     # in case the simulation didn't use a policy return zero since later we subtract this time from the execution time
     return exec_times if exec_times else [0]
