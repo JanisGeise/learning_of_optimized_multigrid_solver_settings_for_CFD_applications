@@ -6,18 +6,18 @@ import matplotlib.pyplot as plt
 
 from os.path import join
 from os import path, makedirs
-
+from scipy.ndimage import gaussian_filter1d
 
 if __name__ == "__main__":
     # path to the top-level directory containing all simulations
     load_path = join(r"..", "run", "parameter_study", "influence_n_subdomains")
 
     # the names of the directories of the simulations
-    cases = ["surfaceMountedCube_20subdomains_hierarchical", "surfaceMountedCube_40subdomains_hierarchical",
-             "surfaceMountedCube_80subdomains_hierarchical"]
+    cases = ["surfaceMountedCube_20subdomains_scotch", "surfaceMountedCube_40subdomains_scotch",
+             "surfaceMountedCube_80subdomains_scotch"]
 
     # name of the top-level directory where the plots should be saved
-    save_path = join(load_path, "plots", "surfaceMountedCube", "hierarchical")
+    save_path = join(load_path, "plots", "surfaceMountedCube", "plots_latex")
 
     # legend entries for the plot
     legend = ["$20$ $subdomains$, $1$ $node$", "$40$ $subdomains$, $2$ $nodes$", "$80$ $subdomains$, $4$ $nodes$"]
@@ -44,7 +44,8 @@ if __name__ == "__main__":
     # plot the results
     fig, ax = plt.subplots(figsize=(6, 3))
     for c in range(len(cases)):
-        ax.plot(data[c]["time"] / factor, data[c]["RAS"] / data[c]["LES"], label=legend[c])
+        print(f"avg. ratio RAS / LES for case {c}: {(data[c]['RAS'] / data[c]['LES']).mean().round(4)}")
+        ax.plot(data[c]["time"] / factor, gaussian_filter1d(data[c]["RAS"] / data[c]["LES"], 5), label=legend[c])
     ax.set_ylabel(r"$RANS \,/\, LES$")
     ax.set_xlabel(r"$t \, / \, T$", fontsize=12)
     fig.tight_layout()

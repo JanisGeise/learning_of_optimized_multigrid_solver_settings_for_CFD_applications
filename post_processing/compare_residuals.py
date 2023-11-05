@@ -92,8 +92,9 @@ def plot_results(x, y, save_dir: str, ylabel: str = "", xlabel: str = r"$t \, / 
     """
     # scale the num. time with period length of dominant frequency in the flow field
     x = [[s / scaling_factor for s in simulation] for simulation in x]
+    y = [[s / scaling_factor for s in simulation] for simulation in y] if ylabel.startswith("t") else y
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(6, 3))
     for j in range(len(x)):
         if legend:
             ax.scatter(x[j], y[j], label=legend_list[j], marker=".")
@@ -106,7 +107,8 @@ def plot_results(x, y, save_dir: str, ylabel: str = "", xlabel: str = r"$t \, / 
         ax.set_yscale("log")
 
     fig.tight_layout()
-    plt.legend(loc="best", framealpha=1.0, ncol=3)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
+    fig.subplots_adjust(top=0.88)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -115,18 +117,18 @@ def plot_results(x, y, save_dir: str, ylabel: str = "", xlabel: str = r"$t \, / 
 
 if __name__ == "__main__":
     # path to the simulation results and save path for plots
-    load_path = join("..", "run", "parameter_study", "influence_grid")
-    save_path = join("..", "run", "parameter_study", "influence_grid", "plots", "surfaceMountedCube")
+    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "smoother")
+    save_path = join("..", "run", "parameter_study", "influence_solver_settings", "smoother", "plots", "surfaceMountedCube",
+                     "plots_latex")
 
     # the names of the directories of the simulations
-    cases = ["surfaceMountedCube_coarseGrid", "surfaceMountedCube_defaultGrid", "surfaceMountedCube_fineGrid"]
+    cases = ["surfaceMountedCube_FDIC", "surfaceMountedCube_DICGaussSeidel", "surfaceMountedCube_GaussSeidel"]
 
     # legend entries for the plot
-    legend = ["$coarse$ $grid$", "$default$ $grid$", "$fine$ $grid$"]
+    legend = ["$FDIC$", "$DICGaussSeidel$", "$GaussSeidel$"]
 
-    # which parameters / properties of the residuals should be compared
-    params = ["exec_time", "n_solver_iter", "sum_gamg_iter", "max_gamg_iter", "max_init_residual",
-              "max_convergence_rate", "median_convergence_rate", "min_convergence_rate"]
+    # which parameters / properties of the residuals should be compared, if None, then all parameters will be compared
+    params = ["exec_time_min"]
 
     # factor for making the time dimensionless; here the period of the dominant frequency in the flow field is used
     # for the surfaceMountedCube case
@@ -163,18 +165,20 @@ if __name__ == "__main__":
     plt.rcParams.update({"text.latex.preamble": r"\usepackage{amsmath}"})
 
     # plot the results
-    keys = [k for k in min_max_values.keys() if not k.startswith("t_") and not k.startswith("init_residual_")]
+    if params is None:
+        params = [k for k in min_max_values.keys() if not k.startswith("t_") and not k.startswith("init_residual_")]
 
     # labels for the plots
-    ylabels = [r"$min(t_{exec}) \qquad [s]$", r"$max(t_{exec}) \qquad [s]$", r"$min(\sum{N_{GAMG}}) \, / \, \Delta t$",
-               r"$max(\sum{N_{GAMG}}) \, / \, \Delta t$", r"$min(N_{GAMG, \, max})$", r"$max(N_{GAMG, \, max})$",
+    ylabels = [r"$min(t^*_{exec}) \, / \, T$", r"$max(t^*_{exec}) \, / \, T$",
+               r"$min(\sum{N_{GAMG}}) \, / \, \Delta t$", r"$max(\sum{N_{GAMG}}) \, / \, \Delta t$",
+               r"$min(N_{GAMG, \, max})$", r"$max(N_{GAMG, \, max})$",
                "$min(\\boldsymbol{R}_{0, max})$", "$max(\\boldsymbol{R}_{0, max})$",
                "$min(|\Delta \\boldsymbol{R}_{max}|)$", "$max(|\Delta \\boldsymbol{R}_{max}|)$",
                "$min(|\Delta \\boldsymbol{R}_{min}|)$", "$max(|\Delta \\boldsymbol{R}_{min}|)$",
                "$min(|\Delta \\boldsymbol{R}_{median}|)$", "$max(|\Delta \\boldsymbol{R}_{median}|)$"]
 
     # loop over the keys and plot the min- & max. values wrt solver setting
-    for i, k in enumerate(keys):
+    for i, k in enumerate(params):
         if "residual" in k or "convergence_rate" in k:
             log_y = True
         else:
