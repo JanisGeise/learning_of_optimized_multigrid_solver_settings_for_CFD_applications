@@ -62,8 +62,8 @@ def load_residuals(case_path: str, new_features: bool = True) -> DataFrame:
         # if new_features: compute the new features, we always have 50 as max. PIMPLE iterations
         if new_features:
             res["ratio_solver_iter"] = res["n_solver_iter"] / 50
-            res["ratio_gamg_iter"] = (res["sum_gamg_iter"] - res["sum_gamg_iter"]) / \
-                                     (res["sum_gamg_iter"] + res["sum_gamg_iter"])
+            res["ratio_gamg_iter"] = (res["sum_gamg_iter"] - res["max_gamg_iter"]) / \
+                                     (res["sum_gamg_iter"] + res["max_gamg_iter"])
 
         # drop the information we haven't available when using the policy
         res.drop([i for i in res.keys() if i not in names], inplace=True, axis=1)
