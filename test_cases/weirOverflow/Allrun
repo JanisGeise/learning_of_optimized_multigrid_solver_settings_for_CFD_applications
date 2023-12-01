@@ -4,8 +4,10 @@ cd "${0%/*}" || exit                                # Run from this directory
 #------------------------------------------------------------------------------
 
 # restore the 0 directory
-# restore0Dir
 cp -r 0.orig 0
+
+# make backup of fvSolution
+cp system/fvSolution system/fvSolution.orig
 
 # mesh creation with blockMesh
 runApplication blockMesh

@@ -10,17 +10,16 @@ from scipy.ndimage import gaussian_filter1d
 
 if __name__ == "__main__":
     # path to the top-level directory containing all simulations
-    load_path = join(r"..", "run", "parameter_study", "influence_n_subdomains")
+    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "interpolateCorrection")
 
     # the names of the directories of the simulations
-    cases = ["surfaceMountedCube_20subdomains_scotch", "surfaceMountedCube_40subdomains_scotch",
-             "surfaceMountedCube_80subdomains_scotch"]
+    cases = ["surfaceMountedCube_no", "surfaceMountedCube_yes"]
 
     # name of the top-level directory where the plots should be saved
     save_path = join(load_path, "plots", "surfaceMountedCube", "plots_latex")
 
     # legend entries for the plot
-    legend = ["$20$ $subdomains$, $1$ $node$", "$40$ $subdomains$, $2$ $nodes$", "$80$ $subdomains$, $4$ $nodes$"]
+    legend = ["$no$", "$yes$"]
 
     # factor for making the time dimensionless; here the period of the dominant vortex shedding frequency (T = 1 / f)
     # is used. The dominant frequency of f = 0.15 Hz is taken from:
@@ -48,6 +47,8 @@ if __name__ == "__main__":
         ax.plot(data[c]["time"] / factor, gaussian_filter1d(data[c]["RAS"] / data[c]["LES"], 5), label=legend[c])
     ax.set_ylabel(r"$RANS \,/\, LES$")
     ax.set_xlabel(r"$t \, / \, T$", fontsize=12)
+    # ax.vlines(2.07, 0.4, 1.2, ls="-.", lw=2, color="red")
+    # ax.vlines(13.75, 0.4, 1.2, ls="-.", lw=2, color="red")
     fig.tight_layout()
     plt.legend(loc="lower right", framealpha=1.0, ncol=1)
     plt.savefig(join(save_path, f"ratio_RANS_LES_vs_time.png"), dpi=340)

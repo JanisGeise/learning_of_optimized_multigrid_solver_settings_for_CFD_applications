@@ -117,22 +117,24 @@ def plot_results(x, y, save_dir: str, ylabel: str = "", xlabel: str = r"$t \, / 
 
 if __name__ == "__main__":
     # path to the simulation results and save path for plots
-    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "smoother")
-    save_path = join("..", "run", "parameter_study", "influence_solver_settings", "smoother", "plots", "surfaceMountedCube",
-                     "plots_latex")
+    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "interpolateCorrection")
+    save_path = join(load_path, "plots", "weirOverflow", "plots_latex")
 
     # the names of the directories of the simulations
-    cases = ["surfaceMountedCube_FDIC", "surfaceMountedCube_DICGaussSeidel", "surfaceMountedCube_GaussSeidel"]
+    cases = ["weirOverflow_no", "weirOverflow_yes"]
 
     # legend entries for the plot
-    legend = ["$FDIC$", "$DICGaussSeidel$", "$GaussSeidel$"]
+    legend = ["$no$", "$yes$"]
 
     # which parameters / properties of the residuals should be compared, if None, then all parameters will be compared
     params = ["exec_time_min"]
 
     # factor for making the time dimensionless; here the period of the dominant frequency in the flow field is used
     # for the surfaceMountedCube case
-    factor = 1 / 0.15
+    # factor = 1 / 0.15
+
+    # for cylinder2D case
+    factor = 1 / 20
 
     # load the filtered log data for each case
     log_data = []
@@ -147,7 +149,7 @@ if __name__ == "__main__":
             log_data.append(pt.load(load_path_tmp))
         except FileNotFoundError:
             # adjust load path
-            load_path_tmp = join(load_path.split("log_data_filtered")[0])
+            load_path_tmp = join(load_path_tmp.split("log_data_filtered")[0])
 
             # else filter log file wrt GAMG & save the data from the log file
             pt.save(get_GAMG_residuals(load_path_tmp), join(load_path_tmp, "log_data_filtered.pt"))
@@ -169,13 +171,16 @@ if __name__ == "__main__":
         params = [k for k in min_max_values.keys() if not k.startswith("t_") and not k.startswith("init_residual_")]
 
     # labels for the plots
+    """
     ylabels = [r"$min(t^*_{exec}) \, / \, T$", r"$max(t^*_{exec}) \, / \, T$",
-               r"$min(\sum{N_{GAMG}}) \, / \, \Delta t$", r"$max(\sum{N_{GAMG}}) \, / \, \Delta t$",
+               r"$min(\sum{N_{GAMG}})$", r"$max(\sum{N_{GAMG}})$",
                r"$min(N_{GAMG, \, max})$", r"$max(N_{GAMG, \, max})$",
                "$min(\\boldsymbol{R}_{0, max})$", "$max(\\boldsymbol{R}_{0, max})$",
                "$min(|\Delta \\boldsymbol{R}_{max}|)$", "$max(|\Delta \\boldsymbol{R}_{max}|)$",
                "$min(|\Delta \\boldsymbol{R}_{min}|)$", "$max(|\Delta \\boldsymbol{R}_{min}|)$",
                "$min(|\Delta \\boldsymbol{R}_{median}|)$", "$max(|\Delta \\boldsymbol{R}_{median}|)$"]
+    """
+    ylabels = [r"$min(t^*_{exec}) \, / \, T$"]
 
     # loop over the keys and plot the min- & max. values wrt solver setting
     for i, k in enumerate(params):
@@ -185,4 +190,4 @@ if __name__ == "__main__":
             log_y = False
 
         plot_results(min_max_values[f"t_{k}"], min_max_values[k], save_path, ylabels[i], y_log=log_y,
-                     save_name=f"comparison_{k}", legend_list=legend, scaling_factor=factor)
+                     save_name=f"comparison_{k}_GS", legend_list=legend, scaling_factor=factor)

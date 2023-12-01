@@ -33,11 +33,10 @@ def get_number_of_time_steps(load_path: str) -> int:
 
 if __name__ == "__main__":
     # path to the top-level directory containing all simulations
-    main_load_path = join(r"..", "run", "parameter_study", "influence_n_subdomains")
+    main_load_path = join(r"..", "run", "parameter_study", "influence_solver_settings", "smoother")
 
     # the names of the directories of the simulations
-    cases = ["mixerVesselAMI_20subdomains_scotch", "mixerVesselAMI_40subdomains_scotch",
-             "mixerVesselAMI_80subdomains_scotch"]
+    cases = ["mixerVesselAMI_FDIC", "mixerVesselAMI_DICGaussSeidel", "mixerVesselAMI_GaussSeidel"]
 
     # index of the default settings
     default_idx = 1
@@ -58,19 +57,21 @@ if __name__ == "__main__":
     # xlabel = r"$N_{cells}$"
 
     # alternative x-ticks
-    xticks = [get_number_of_subdomains(join(main_load_path, c)) for c in cases]
-    xlabel = r"$N_{domains}$"
+    # xticks = [get_number_of_subdomains(join(main_load_path, c)) for c in cases]
+    # xlabel = r"$N_{domains}$"
+    xticks = ["$FDIC$", "$DICGaussSeidel$", "$GaussSeidel$"]
+    xlabel = r""
 
     # use latex fonts
     plt.rcParams.update({"text.usetex": True})
 
     # plot results
-    fig, ax = plt.subplots(figsize=(6, 3))
+    fig, ax = plt.subplots(figsize=(6, 2))
     ax.plot(xticks, [n / default_n_dt for n in n_dt], color="black", marker="x")
-    ax.hlines(1, min(xticks), max(xticks), color="black", ls="-.", alpha=0.5)
+    # ax.hlines(1, min(xticks), max(xticks), color="black", ls="-.", alpha=0.5)
     ax.set_ylabel(r"$N_{\Delta t} \, / \, N_{\Delta t, default}$")
     ax.set_xlabel(xlabel)
-    ax.set_xlim(min(xticks), max(xticks))
+    # ax.set_xlim(min(xticks), max(xticks))
     fig.tight_layout()
     plt.savefig(join(save_path, f"n_dt.png"), dpi=340)
     plt.show(block=False)

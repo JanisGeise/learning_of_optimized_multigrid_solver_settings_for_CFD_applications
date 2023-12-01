@@ -14,4 +14,7 @@ rm -r 0
 # remove computed cell centers
 rm constant/C*
 rm constant/V
+
+# remove trajectory
+rm *.txt
 #------------------------------------------------------------------------------

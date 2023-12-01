@@ -5,6 +5,9 @@ cd "${0%/*}" || exit                                # Run from this directory
 # restore0Dir
 cp -r 0.orig 0
 
+# make backup of fvSolution
+cp system/fvSolution system/fvSolution.orig
+
 channelCase=../initChannel
 channelDataDir="$channelCase"/postProcessing/surfaces/inlet
 

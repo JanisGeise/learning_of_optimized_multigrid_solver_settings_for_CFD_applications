@@ -13,6 +13,9 @@ runApplication checkMesh
 cp -r 0.org 0
 runApplication setExprBoundaryFields
 
+# make backup of fvSolution
+cp system/fvSolution system/fvSolution.orig
+
 # decompose case
 runApplication decomposePar
 runParallel renumberMesh -overwrite

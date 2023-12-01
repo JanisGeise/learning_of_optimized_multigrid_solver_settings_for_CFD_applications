@@ -10,5 +10,6 @@ rm -r 0
 rm constant/C*
 rm constant/V
 
+# remove trajectory
 rm *.txt
 #------------------------------------------------------------------------------

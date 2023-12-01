@@ -33,13 +33,14 @@ def load_cpu_times(case_path: str) -> DataFrame:
     return times
 
 
-def load_residuals(case_path: str, new_features: bool = True) -> DataFrame:
+def load_residuals(case_path: str, new_features: bool = True, n_pimple_max: int = 50) -> DataFrame:
     """
     load the properties of the residuals used as policy input wrt time step written out by the 'agentSolverSettings'
     function object throughout the simulation
 
     :param case_path: path to the directory where the results of the simulation are located
     :param new_features: flag if the cases with policy where run using the new input features (True) or old ones (False)
+    :param n_pimple_max: max. number of allowed PIMPLE iterations
     :return: the properties of the residuals wrt time steps
     """
     # same names as in 'get_residuals_from_log.py', so we can use the 'map_keys_to_label' function later for plotting,
@@ -59,9 +60,9 @@ def load_residuals(case_path: str, new_features: bool = True) -> DataFrame:
     if res.empty:
         res = pd.DataFrame.from_dict(get_GAMG_residuals(case_path.split("postProcessing")[0]))
 
-        # if new_features: compute the new features, we always have 50 as max. PIMPLE iterations
+        # if new_features: compute the new features
         if new_features:
-            res["ratio_solver_iter"] = res["n_solver_iter"] / 50
+            res["ratio_solver_iter"] = res["n_solver_iter"] / n_pimple_max
             res["ratio_gamg_iter"] = (res["sum_gamg_iter"] - res["max_gamg_iter"]) / \
                                      (res["sum_gamg_iter"] + res["max_gamg_iter"])
 
@@ -93,8 +94,6 @@ def load_trajectory(load_dir: str) -> pt.Tensor or None:
         # in case we have a policy where 'nCellsInCoarsestLevel' is present, remove the probs and convert the action to
         # a number (otherwise plot is not clear due to too many lines)
         if " action2" in tr:
-            tr.drop(columns=[f" prob{i}" for i in range(7, 17)], inplace=True)
-
             # convert the action to the corresponding 'nFinestSweeps'
             classes = pt.arange(1, 11, 1)
             n_sweeps = classes[tr[" action2"]]
@@ -178,14 +177,17 @@ def get_mean_and_std_exec_time(load_dir: str, simulations: list) -> dict:
                 continue
 
     # if we have nCellsInCoarsestLevel, then put that in its own field
-    tmp = []
+    out_dict["mean_probs_smoother"], out_dict["mean_probs_sweeps"], out_dict["n_finestSweeps"] = [], [], []
     for i, o in enumerate(out_dict["mean_probs"]):
         if o is not None and o.size()[1] > 7:
-            tmp.append(o[:, -1])
-            out_dict["mean_probs"][i] = o[:, :7]
+            out_dict["mean_probs_smoother"].append(o[:, :7])
+            out_dict["mean_probs_sweeps"].append(o[:, 7:-1])
+            out_dict["n_finestSweeps"].append(o[:, -1])
         else:
-            tmp.append(None)
-    out_dict["n_finestSweeps"] = tmp
+            out_dict["n_finestSweeps"].append(None)
+            out_dict["mean_probs_smoother"].append(None)
+            out_dict["mean_probs_sweeps"].append(None)
+    out_dict.pop("mean_probs")
 
     return out_dict
 
@@ -214,7 +216,7 @@ def plot_nFinestSweeps(n_sweeps: list, times: list, save_dir: str, sf: float = 1
     ax.set_ylabel(r"$nFinestSweeps$", fontsize=13)
     fig.tight_layout()
     fig.legend(loc="upper center", framealpha=1.0, ncol=2)
-    fig.subplots_adjust(top=0.84)
+    fig.subplots_adjust(top=0.86)
     plt.savefig(join(save_dir, f"nFinestSweeps.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -240,17 +242,10 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     :param xlabels: list containing the labels for the x-axis
     :return: None
     """
-
     if ylabel is None and scale_wrt_default:
-        if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
-            ylabel = r"$t^*_{exec}$"
-        else:
-            ylabel = [r"$\mu(t^*_{exec})$", r"$\sigma(t^*_{exec})$"]
+        ylabel = r"$t^*_{exec}$"
     elif ylabel is None and not scale_wrt_default:
-        if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
-            ylabel = r"$t_{exec}$   $[s]$"
-        else:
-            ylabel = [r"$\mu(t_{exec})$   $[s]$", r"$\sigma(t_{exec})$   $[s]$"]
+        ylabel = r"$t_{exec}$   $[s]$"
     else:
         pass
 
@@ -261,10 +256,7 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
     color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
     # if we don't have a std. deviation don't plot it
-    if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
-        fig, ax = plt.subplots(figsize=(8, 2))
-    else:
-        fig, ax = plt.subplots(nrows=2, figsize=(8, 4), sharex="col")
+    fig, ax = plt.subplots(figsize=(8, 3))
 
     for i, r in enumerate(zip(data[keys[0]], data[keys[1]])):
         # scale all execution times with the execution time of the default settings
@@ -272,41 +264,26 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
             if r[1] == 0 or r[1].isnan():
                 ax.scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", zorder=10, color=color[i])
-                ax.set_ylabel(ylabel, fontsize=13)
             else:
-                # plot mean
-                ax[0].scatter(xlabels[i], r[0] / data[keys[0]][default], marker="o", zorder=10, color=color[i])
-                # plot std. deviation
-                ax[1].scatter(xlabels[i], r[1] / data[keys[1]][default], marker="o", zorder=10, color=color[i])
-                ax[0].set_ylabel(ylabel[0], fontsize=13)
-                ax[1].set_ylabel(ylabel[1], fontsize=13)
+                ax.errorbar(xlabels[i], r[0] / data[keys[0]][default], yerr=r[1] / data[keys[0]][i],
+                            barsabove=True, fmt="o", capsize=5, color=color[i])
+            ax.set_ylabel(ylabel, fontsize=13)
 
         # no scaling
         else:
             # if we don't have a std. (e.g. N_dt), then just make a scatter plot
-            if r[1] == 0 or r[1].isnan():
-                ax.scatter(xlabels[i], r[0], marker="o", color=color[i], zorder=10, facecolors=color[i])
-                ax.set_ylabel(ylabel, fontsize=13)
-            else:
-                ax[0].scatter(xlabels[i], r[0], marker="o", zorder=10, color=color[i])
-                ax[1].scatter(xlabels[i], r[1], marker="o", zorder=10, color=color[i])
-                ax[0].set_ylabel(ylabel[0], fontsize=13)
-                ax[1].set_ylabel(ylabel[1], fontsize=13)
-    fig.tight_layout()
+            ax.scatter(xlabels[i], r[0], marker="o", color=color[i], zorder=10, facecolors=color[i])
+            ax.set_ylabel(ylabel, fontsize=13)
 
-    if data[keys[1]][0] == 0 or data[keys[1]][0].isnan():
-        ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
-        ax.minorticks_on()
-        ax.tick_params(axis="x", which="minor", bottom=False)
-        ax.grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
-    else:
-        for a in range(2):
-            ax[a].grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
-            ax[a].minorticks_on()
-            ax[a].tick_params(axis="x", which="minor", bottom=False)
-            ax[a].grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
+    fig.tight_layout()
+    ax.grid(visible=True, which="major", linestyle="-", alpha=0.45, color="black", axis="y")
+    ax.minorticks_on()
+    ax.tick_params(axis="x", which="minor", bottom=False)
+    ax.grid(visible=True, which="minor", linestyle="--", alpha=0.35, color="black", axis="y")
 
     if scale_wrt_default:
+        # avoid weird axis scaling if scaled
+        ax.ticklabel_format(useOffset=False, axis="y", style="plain")
         plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     else:
         plt.savefig(join(save_dir, f"{save_name}_abs.png"), dpi=340)
@@ -317,7 +294,8 @@ def plot_avg_exec_times_final_policy(data, keys: list = ["mean_t_exec", "std_t_e
 
 
 def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: str = "probabilities_vs_dt",
-                       sf: float = 1, param: Union[str, list] = "smoother", legend: list = None) -> None:
+                       sf: float = 1, param: Union[str, list] = "smoother", legend: list = None,
+                       plot_hline: bool = True, n_cols_legend: int = 3, top: float = 0.76) -> None:
     """
     plot the loaded probabilities with respect to the time step and simulation
 
@@ -328,6 +306,9 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     :param sf: scaling factor for scaling the x-axis (non-dimensionalizing the time step)
     :param param: labels for the probabilities, if 'smoother' the probabilities correspond to all available smoother
     :param legend: list containing the legend entries
+    :param top: margin for adjusting the white space at the top of the subplots
+    :param n_cols_legend: number columns the legend should contain max.
+    :param plot_hline: flag for plotting a horizontal reference line at a probability of p = 0.5 (decision boundary)
     :return: None
     """
     if param == "smoother":
@@ -353,7 +334,8 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
 
     for i, p in enumerate(probs):
         # reset color cycle for each case, so that all probs have the same color
-        color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+        color = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
+                 '#17becf']
 
         if p is not None:
             # loop over all available probabilities
@@ -366,32 +348,33 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
                                          label=label[j])
 
                     # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
-                    if counter == 0 and j == 0:
-                        if n_traj == 1:
-                            ax.hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                    if plot_hline:
+                        if counter == 0 and j == 0:
+                            if n_traj == 1:
+                                ax.hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
+                            else:
+                                ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
                         else:
-                            ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.", label="$\mathbb{P} = 0.5$")
-                    else:
-                        if n_traj == 1:
-                            ax.hlines(0.5, 0, xmax, color="red", ls="-.")
-                        else:
-                            ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+                            if n_traj == 1:
+                                ax.hlines(0.5, 0, xmax, color="red", ls="-.")
+                            else:
+                                ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
                 else:
                     if n_traj == 1:
                         ax.plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
-                        ax.hlines(0.5, 0, xmax, color="red", ls="-.")
+                        if plot_hline:
+                            ax.hlines(0.5, 0, xmax, color="red", ls="-.")
                     else:
                         ax[counter].plot(time_steps[i] / sf, gaussian_filter1d(p[:, j], 5), color=color[j])
 
                         # for interpolateCorrection, add a horizontal line at p = 0.5 = decision boundary
-                        ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
+                        if plot_hline:
+                            ax[counter].hlines(0.5, 0, xmax, color="red", ls="-.")
 
                 if n_traj == 1:
                     ax.set_xlim(0, xmax)
                     ax.set_yscale("log")
                     ax.set_ylabel(r"$\mathbb{P}$", fontsize=13)
-                    ax.annotate(legend[i], xy=(xmax + xmax * 0.025, 0.5), fontsize=13,
-                                xycoords=ax.get_xaxis_transform())
                 else:
                     ax[counter].set_xlim(0, xmax)
                     ax[counter].set_yscale("log")
@@ -405,8 +388,8 @@ def plot_probabilities(probs: list, time_steps, save_dir: str = "", save_name: s
     else:
         ax[-1].set_xlabel(r"$t \, / \, T$", fontsize=13)
     fig.tight_layout()
-    fig.legend(loc="upper center", framealpha=1.0, ncol=3)
-    fig.subplots_adjust(top=0.85)
+    fig.legend(loc="upper center", framealpha=1.0, ncol=n_cols_legend)
+    fig.subplots_adjust(top=top)
     plt.savefig(join(save_dir, f"{save_name}.png"), dpi=340)
     plt.show(block=False)
     plt.pause(2)
@@ -465,16 +448,14 @@ def compare_residuals(load_dir: str, simulations: list, save_dir: str, sf: float
 
 if __name__ == "__main__":
     # main path to all the cases and save path
-    load_path = join("..", "run", "validation_best_policy", "results_cylinder2D_4domains")
-    save_path = join(load_path, "plots")
+    load_path = join("..", "run", "drl", "combined_smoother_interpolateCorrection_nFinestSweeps", "results_weirOverflow")
+    save_path = join(load_path, "plots", "plots_latex", "TEST")
 
     # names of top-level directory containing the simulations run with different settings
-    cases = ["default_settings_no_policy", "nonBlockingGaussSeidel_no_policy",
-             "trained_policy_best_policy", "trained_policy_2domains"]
+    cases = ["default_settings_no_policy", "DIC_local", "trained_policy_b20_PPO_every_10th_dt_validation_every_dt"]
 
-    # xticks for the plots
-    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$nonBlockingGaussSeidel$\n$(no$ $policy)$",
-              "$final$ $policy$\n$(every$ $2 \Delta t)$", "$final$ $policy$\n$(2$ $subdomains)$"]
+    # xticks and legend for the plots
+    xticks = ["$DICGaussSeidel$\n$(no$ $policy)$", "$DIC$\n$(no$ $policy)$", "$final$ $policy$\n$(b=20)$"]
 
     # which case contains the default setting -> used for scaling the execution times
     default_idx = 0
@@ -483,10 +464,16 @@ if __name__ == "__main__":
     scale = True
 
     # scaling factor for num. time, here: approx. period length of vortex shedding frequency @ Re = 1000
-    factor = 1 / 20
+    # factor = 1 / 20
 
     # factor for weirOverflow case
-    # factor = 1 / 0.4251
+    factor = 1 / 0.4251
+
+    # for the surfaceMountedCube case
+    # factor = 1 / 0.15
+
+    # for the mixerVesselAMI case
+    # factor = 1 / 1.6364
 
     # create directory for plots
     if not path.exists(save_path):
@@ -499,7 +486,8 @@ if __name__ == "__main__":
 
     # don't plot probabilities of actions or 'nCellsInCoarsestLevel' for random policy incase we have any
     try:
-        results["mean_probs"][cases.index("random_policy")] = None
+        results["mean_probs_smoother"][cases.index("random_policy")] = None
+        results["mean_probs_sweeps"][cases.index("random_policy")] = None
         results["n_finestSweeps"][cases.index("random_policy")] = None
     except ValueError:
         pass
@@ -519,15 +507,20 @@ if __name__ == "__main__":
 
     # plot the probability (policy output) wrt time step and setting (e.g. probability for each available smoother)
     # in case we have any
-    if any([False if i is None else True for i in results["mean_probs"]]):
-        plot_probabilities(results["mean_probs"], results["t"], save_dir=save_path, sf=factor, legend=xticks,
+    if any([False if i is None else True for i in results["mean_probs_smoother"]]):
+        plot_probabilities(results["mean_probs_smoother"], results["t"],
+                           save_dir=save_path, sf=factor, legend=xticks, top=0.75,
                            param=["$no$ $if$ $\mathbb{P} \le 0.5,$ $else$ $yes$", "$FDIC$", "$DIC$", "$DICGaussSeidel$",
                                   "$symGaussSeidel$", "$nonBlockingGaussSeidel$", "$GaussSeidel$"])
 
     # plot 'nFinestSweeps' if it is available
     if any([False if i is None else True for i in results["n_finestSweeps"]]):
-        plot_nFinestSweeps(results["n_finestSweeps"], results["t"], save_dir=save_path, sf=factor,
-                           legend=[i.replace("\n", " ") for i in xticks])
+        plot_probabilities(results["mean_probs_sweeps"], results["t"],
+                           save_dir=save_path, sf=factor, legend=xticks,
+                           param=[f"{i}" for i in range(1, 11)], save_name="probabilites_vs_dt_sweeps",
+                           plot_hline=False, n_cols_legend=10, top=0.86)
+        plot_nFinestSweeps(results["n_finestSweeps"], results["t"], save_dir=save_path,
+                           sf=factor, legend=[i.replace("\n", " ") for i in xticks])
 
     # make sure all cases have the same amount of time steps as the default case, if not then take the 1st N time steps
     # which are available for all cases (difference for 'weirOverflow' is ~10 dt and therefore not visible anyway)
