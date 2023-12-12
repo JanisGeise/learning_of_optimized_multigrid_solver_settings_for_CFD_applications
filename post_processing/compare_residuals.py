@@ -118,10 +118,10 @@ def plot_results(x, y, save_dir: str, ylabel: str = "", xlabel: str = r"$t \, / 
 if __name__ == "__main__":
     # path to the simulation results and save path for plots
     load_path = join("..", "run", "parameter_study", "influence_solver_settings", "interpolateCorrection")
-    save_path = join(load_path, "plots", "weirOverflow", "plots_latex")
+    save_path = join(load_path, "plots", "surfaceMountedCube", "plots_latex")
 
     # the names of the directories of the simulations
-    cases = ["weirOverflow_no", "weirOverflow_yes"]
+    cases = ["surfaceMountedCube_no", "surfaceMountedCube_yes"]
 
     # legend entries for the plot
     legend = ["$no$", "$yes$"]
@@ -131,10 +131,10 @@ if __name__ == "__main__":
 
     # factor for making the time dimensionless; here the period of the dominant frequency in the flow field is used
     # for the surfaceMountedCube case
-    # factor = 1 / 0.15
+    factor = 1 / 0.15
 
     # for cylinder2D case
-    factor = 1 / 20
+    # factor = 1 / 20
 
     # load the filtered log data for each case
     log_data = []
@@ -158,6 +158,11 @@ if __name__ == "__main__":
     # for each time step, determine which configuration yielded min. / max. values, e.g. t_exec
     min_max_values = get_min_max_vs_parameter(log_data)
 
+    # if the min. execution time is within the params list, print out the hypothetical runtime encountered if always the
+    # setting yielding the min. exec time would have been used
+    if "exec_time_min" in params:
+        print(f"t_exec (for optimal settings): {round(sum(sum(i) for i in min_max_values['exec_time_min']), 3)} s")
+    exit()
     # create directory for plots
     if not path.exists(save_path):
         makedirs(save_path)

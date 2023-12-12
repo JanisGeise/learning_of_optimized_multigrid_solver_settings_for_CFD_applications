@@ -12,7 +12,7 @@ from typing import Union, Tuple, List
 from post_processing.get_residuals_from_log import get_GAMG_residuals
 
 
-def get_avg_min_t_exec_vs_settings(data: list, interval: int = 100, key: str = "exec_time",
+def get_avg_min_t_exec_vs_settings(data: list, interval: int = 10, key: str = "exec_time",
                                    sf: Union[int, float] = 1) -> Tuple[List, List]:
     """
     compute the avg. value of a quantity, e.g. execution time per time step, in a defined interval with respect
@@ -31,34 +31,48 @@ def get_avg_min_t_exec_vs_settings(data: list, interval: int = 100, key: str = "
     data = [d[key] for d in data]
 
     # loop over all dt and compute the amount of settings yielding the fastest execution time
-    count, t = [], []
+    t_exec, t_cfd = [], []
     for idx, d in enumerate(data):
         # loop over all cases and determine which case yield the min. exec time per dt for the current interval
         tmp = pt.tensor([[pt.tensor(d[j:j+interval]).mean(), pt.tensor(num_time[idx][j:j+interval]).mean()] for j in
                         range(0, len(d), interval)])
-        t.append(tmp[:, 1] / sf)
-        count.append(tmp[:, 0] / sf)
+        t_cfd.append(tmp[:, 1] / sf)
+        t_exec.append(tmp[:, 0] / sf)
 
-    return count, t
+    # estimate the hypothetical exec time optimal settings would yield (based on avg. exec time in each interval), note:
+    # the accuracy of this estimation increases with decreasing interval size
+    if key == "exec_time":
+        # we assume that the optimal yield the min. number of time steps as well
+        min_dt = min([len(j) for j in t_exec])
+
+        # take the solver setting yielding the min. exec time in each interval and print results
+        tmp = pt.stack([case[:min_dt] for case in t_exec]).min(dim=0)[0].sum()
+
+        # compare that to the other settings
+        print("possible savings (for optimal settings):")
+        for j, case in enumerate(t_exec):
+            print(f"\tcompared to case {j}: {round((tmp / case.sum()).item(), 4)}")
+        exit()
+    return t_exec, t_cfd
 
 
 if __name__ == "__main__":
     # path to the simulation results and save path for plots
-    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "interpolateCorrection")
-    save_path = join(load_path, "plots", "weirOverflow", "plots_latex")
+    load_path = join("..", "run", "parameter_study", "influence_solver_settings", "smoother")
+    save_path = join(load_path, "plots", "mixerVesselAMI", "plots_latex")
 
     # the names of the directories of the simulations
-    cases = ["weirOverflow_no_FDIC", "weirOverflow_yes_FDIC"]
+    cases = ["mixerVesselAMI_FDIC", "mixerVesselAMI_DICGaussSeidel", "mixerVesselAMI_GaussSeidel"]
 
     # legend entries for the plot
     legend = ["$no$", "$yes$"]
 
     # save name for the plot
-    save_name = "avg_min_t_exec_FDIC"
+    save_name = "avg_min_t_exec"
 
     # factor for making the numerical time dimensionless
     # mixerVesselAMI
-    # factor = 1 / 1.6364
+    factor = 1 / 1.6364
 
     # surfaceMountedCube
     # factor = 1 / 0.15
@@ -67,7 +81,7 @@ if __name__ == "__main__":
     # factor = 1 / 20
 
     # weirOverflow
-    factor = 1 / 0.4251
+    # factor = 1 / 0.4251
 
     # load the filtered log data for each case
     log_data = []
