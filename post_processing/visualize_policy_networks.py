@@ -157,7 +157,6 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
     # names of the available smoother, GS = GaussSeidel, otherwise names are too long...
     msg = ["$\mathbb{P}(GS)$", "$\mathbb{P}(nonBlockingGS)$", "$\mathbb{P}(symGS)$", "$\mathbb{P}(DICGS)$",
            "$\mathbb{P}(DIC)$", "$\mathbb{P}(FDIC)$"]
-
     # names of labels for policy input
     if n_inputs == 6:
         names = [r"$\frac{N_{PIMPLE}}{N_{PIMPLE, max}}$",
@@ -299,6 +298,37 @@ def plot_policies(save_dir: str, n_inputs: int = 7, n_outputs: int = 1, save_nam
 
         save_name = "policy_network_interpolateCorrection_and_smoother" if save_name is None else save_name
 
+    elif n_outputs == 17:
+        rectangle = Rectangle((-r + 1.2, -r), width=4 * r, height=1 + 2 * r, edgecolor="grey", facecolor="grey",
+                              alpha=0.4)
+        ax.add_patch(rectangle)
+
+        # draw the output neurons
+        for n in range(n_outputs):
+            circle = Circle((1.2 + r, pos_out[n]), radius=r, color="red", zorder=10)
+            ax.add_patch(circle)
+
+        # connect last hidden layer with output layer
+        y = [[(i, k) for k in pos_out] for i in pos_h]
+        [[ax.plot((0.8+r, 1.2), k, color="grey", lw=0.5) for k in i] for i in y]
+
+        # drax the sigmoid annotation for the 1st output neuron
+        ax.annotate("$\mathbb{P}(interpolation)$", (1.2 + 4 * r, pos_out[-1] - r), annotation_clip=False, color="blue",
+                    fontsize=8)
+
+        # annotate the remaining output neurons
+        [ax.annotate(msg[m], (1.2 + 4 * r, pos_out[m+10]-r), annotation_clip=False, color="black", fontsize=8)
+         for m in range(6)]
+        [ax.annotate("$\mathbb{P} ($$" + str(m+1) + ")$", (1.2 + 4 * r, pos_out[-m+9]-r), annotation_clip=False,
+                     color="red", fontsize=8) for m in range(10)]
+
+        # add legend
+        ax.annotate("$\\boldsymbol{R} \enspace \equiv Residual$", (0.3, 1.45), annotation_clip=False, color="green")
+        ax.annotate("$\mathbb{P} \enspace \; \equiv probability$\n$GS \equiv GaussSeidel$", (0.3, 1.3),
+                    annotation_clip=False, color="red")
+
+        save_name = "final_policy_network" if save_name is None else save_name
+
     ax.annotate("$output$\n$layer$\n$(1 \\times$" + f"${n_outputs}$" + "$)$", (1.2 + r, -0.48), annotation_clip=False,
                 color="black", ha="center")
 
@@ -333,4 +363,7 @@ if __name__ == "__main__":
     # for combination of 'interpolateCorrection' and 'smoother', new input features
     plot_policies(save_path, n_inputs=6, n_outputs=7,
                   save_name="policy_network_interpolateCorrection_and_smoother_new_features")
+
+    # for combination of 'interpolateCorrection' and 'smoother', new input features
+    plot_policies(save_path, n_inputs=6, n_outputs=17, save_name="final_policy_network")
 
