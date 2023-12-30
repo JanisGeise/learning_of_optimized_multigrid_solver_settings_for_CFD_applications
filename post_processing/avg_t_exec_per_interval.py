@@ -52,7 +52,7 @@ def get_avg_min_t_exec_vs_settings(data: list, interval: int = 10, key: str = "e
         print("possible savings (for optimal settings):")
         for j, case in enumerate(t_exec):
             print(f"\tcompared to case {j}: {round((tmp / case.sum()).item(), 4)}")
-        exit()
+
     return t_exec, t_cfd
 
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
             log_data.append(pt.load(load_path_tmp))
         except FileNotFoundError:
             # adjust load path
-            load_path_tmp = join(load_path.split("log_data_filtered")[0])
+            load_path_tmp = join(load_path_tmp.split("log_data_filtered")[0])
 
             # else filter log file wrt GAMG & save the data from the log file
             pt.save(get_GAMG_residuals(load_path_tmp), join(load_path_tmp, "log_data_filtered.pt"))
